@@ -1,16 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import List
 from uuid import UUID
 from app.database import get_db
 from app.models.user import User
 from app.models.service import Service, CheckFrequency
+from app.models.change_event import ChangeEvent
 from app.schemas.service import ServiceCreate, ServiceUpdate, ServiceResponse
+from app.schemas.dashboard import DashboardSummaryResponse, ServiceSummary, ChangeEventSummary
 from app.core.auth import get_current_user
 import uuid
 
 router = APIRouter(prefix="/api/services", tags=["services"])
+dashboard_router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
+
+__all__ = ["router", "dashboard_router"]
 
 
 @router.post("", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED)
@@ -126,4 +131,65 @@ async def delete_service(
     await db.commit()
     
     return None
+
+
+@dashboard_router.get("/summary", response_model=DashboardSummaryResponse)
+async def get_dashboard_summary(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Service).where(Service.user_id == current_user.id)
+    )
+    services = result.scalars().all()
+    
+    service_summaries = []
+    total_services = len(services)
+    active_services = sum(1 for s in services if s.is_active)
+    recent_changes_count = 0
+    
+    for service in services:
+        latest_change_result = await db.execute(
+            select(ChangeEvent)
+            .where(ChangeEvent.service_id == service.id)
+            .order_by(ChangeEvent.created_at.desc())
+            .limit(1)
+        )
+        latest_change = latest_change_result.scalar_one_or_none()
+        
+        change_count_result = await db.execute(
+            select(func.count(ChangeEvent.id))
+            .where(ChangeEvent.service_id == service.id)
+        )
+        change_count = change_count_result.scalar_one() or 0
+        
+        if latest_change:
+            recent_changes_count += 1
+            last_change_event = ChangeEventSummary(
+                id=latest_change.id,
+                change_type=latest_change.change_type,
+                summary=latest_change.summary,
+                confidence_score=latest_change.confidence_score,
+                created_at=latest_change.created_at
+            )
+        else:
+            last_change_event = None
+        
+        service_summaries.append(ServiceSummary(
+            id=service.id,
+            name=service.name,
+            url=service.url,
+            is_active=service.is_active,
+            last_checked_at=service.last_checked_at,
+            last_change_event=last_change_event,
+            change_count=change_count,
+            alerts_enabled=service.alerts_enabled
+        ))
+    
+    return DashboardSummaryResponse(
+        services=service_summaries,
+        total_services=total_services,
+        active_services=active_services,
+        recent_changes_count=recent_changes_count
+    )
 

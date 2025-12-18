@@ -1,10 +1,10 @@
 'use client';
 
-import { Service } from '@/lib/api';
+import { ServiceSummary } from '@/lib/api';
 import ServiceCard from './ServiceCard';
 
 interface ServiceListProps {
-  services: Service[];
+  services: ServiceSummary[];
 }
 
 export default function ServiceList({ services }: ServiceListProps) {

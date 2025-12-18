@@ -20,6 +20,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(services.router)
+app.include_router(services.dashboard_router)
 app.include_router(snapshots.router)
 
 
