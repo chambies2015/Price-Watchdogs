@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     stripe_secret_key: Optional[str] = None
     stripe_publishable_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
+    sentry_dsn: Optional[str] = None
+    environment: str = "development"
+    cors_origins: str = "*"
 
     class Config:
         env_file = ".env"

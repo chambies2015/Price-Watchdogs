@@ -25,6 +25,18 @@ scheduler = AsyncIOScheduler()
 
 job_metrics: Dict[str, List[Dict[str, Any]]] = {}
 
+"""
+Background Job Scheduler
+
+This module manages all background jobs using APScheduler:
+- fetch_service_pages: Runs hourly to fetch and snapshot service pages
+- dispatch_pending_alerts: Runs every 5 minutes to send pending email alerts
+- cleanup_snapshots: Runs weekly (Sunday 2 AM) to clean up old snapshots
+
+All jobs are automatically started when the FastAPI application starts.
+Job metrics are tracked in the job_metrics dictionary for monitoring.
+"""
+
 
 async def process_service_with_retry(
     db: AsyncSession,
