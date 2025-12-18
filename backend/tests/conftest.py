@@ -13,7 +13,7 @@ os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
 
 from app.database import Base, get_db
-from app.models import User, Service, Snapshot, ChangeEvent, Alert
+from app.models import User, Service, Snapshot, ChangeEvent, Alert, Subscription, Payment
 from app.main import app
 
 TEST_DB_FILE = tempfile.NamedTemporaryFile(delete=False, suffix=".db")

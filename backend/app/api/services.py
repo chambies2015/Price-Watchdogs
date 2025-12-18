@@ -154,37 +154,68 @@ async def get_dashboard_summary(
     )
     services = result.scalars().all()
     
+    service_ids = [s.id for s in services]
+    
+    if service_ids:
+        latest_changes_subquery = (
+            select(
+                ChangeEvent.service_id,
+                ChangeEvent.id,
+                ChangeEvent.change_type,
+                ChangeEvent.summary,
+                ChangeEvent.confidence_score,
+                ChangeEvent.created_at,
+                func.row_number()
+                .over(
+                    partition_by=ChangeEvent.service_id,
+                    order_by=ChangeEvent.created_at.desc()
+                )
+                .label("rn")
+            )
+            .where(ChangeEvent.service_id.in_(service_ids))
+            .subquery()
+        )
+        
+        latest_changes_result = await db.execute(
+            select(latest_changes_subquery)
+            .where(latest_changes_subquery.c.rn == 1)
+        )
+        latest_changes = {row.service_id: row for row in latest_changes_result.all()}
+        
+        change_counts_result = await db.execute(
+            select(
+                ChangeEvent.service_id,
+                func.count(ChangeEvent.id).label("count")
+            )
+            .where(ChangeEvent.service_id.in_(service_ids))
+            .group_by(ChangeEvent.service_id)
+        )
+        change_counts = {row.service_id: row.count for row in change_counts_result.all()}
+    else:
+        latest_changes = {}
+        change_counts = {}
+    
     service_summaries = []
     total_services = len(services)
     active_services = sum(1 for s in services if s.is_active)
     recent_changes_count = 0
     
     for service in services:
-        latest_change_result = await db.execute(
-            select(ChangeEvent)
-            .where(ChangeEvent.service_id == service.id)
-            .order_by(ChangeEvent.created_at.desc())
-            .limit(1)
-        )
-        latest_change = latest_change_result.scalar_one_or_none()
+        latest_change_row = latest_changes.get(service.id)
         
-        change_count_result = await db.execute(
-            select(func.count(ChangeEvent.id))
-            .where(ChangeEvent.service_id == service.id)
-        )
-        change_count = change_count_result.scalar_one() or 0
-        
-        if latest_change:
+        if latest_change_row:
             recent_changes_count += 1
             last_change_event = ChangeEventSummary(
-                id=latest_change.id,
-                change_type=latest_change.change_type,
-                summary=latest_change.summary,
-                confidence_score=latest_change.confidence_score,
-                created_at=latest_change.created_at
+                id=latest_change_row.id,
+                change_type=latest_change_row.change_type,
+                summary=latest_change_row.summary,
+                confidence_score=latest_change_row.confidence_score,
+                created_at=latest_change_row.created_at
             )
         else:
             last_change_event = None
+        
+        change_count = change_counts.get(service.id, 0)
         
         service_summaries.append(ServiceSummary(
             id=service.id,
