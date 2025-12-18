@@ -19,6 +19,8 @@ async def test_create_service(client: AsyncClient, auth_headers: dict):
     assert data["name"] == "Stripe Pricing"
     assert data["url"] == "https://stripe.com/pricing"
     assert data["check_frequency"] == "daily"
+    assert data["alerts_enabled"] is True
+    assert data["alert_confidence_threshold"] == 0.6
     assert "id" in data
 
 
@@ -106,6 +108,8 @@ async def test_update_service(client: AsyncClient, auth_headers: dict):
     assert data["name"] == "Updated Name"
     assert data["check_frequency"] == "weekly"
     assert data["is_active"] is False
+    assert "alerts_enabled" in data
+    assert "alert_confidence_threshold" in data
 
 
 @pytest.mark.asyncio

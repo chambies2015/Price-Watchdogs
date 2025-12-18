@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    mailgun_api_key: Optional[str] = None
+    mailgun_domain: Optional[str] = None
+    mailgun_from_email: Optional[str] = None
+    frontend_base_url: str = "http://localhost:3000"
 
     class Config:
         env_file = ".env"

@@ -27,6 +27,8 @@ class ServiceUpdate(BaseModel):
     url: Optional[str] = Field(None, min_length=1)
     check_frequency: Optional[CheckFrequency] = None
     is_active: Optional[bool] = None
+    alerts_enabled: Optional[bool] = None
+    alert_confidence_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
 
     @field_validator('url')
     @classmethod
@@ -41,6 +43,8 @@ class ServiceResponse(ServiceBase):
     user_id: UUID
     last_checked_at: Optional[datetime] = None
     is_active: bool
+    alerts_enabled: bool
+    alert_confidence_threshold: float
     created_at: datetime
 
     class Config:
