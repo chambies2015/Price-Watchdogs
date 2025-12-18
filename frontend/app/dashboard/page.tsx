@@ -2,7 +2,6 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -37,4 +36,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
