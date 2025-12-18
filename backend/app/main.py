@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.api import auth, services, snapshots
+from app.api import auth, services, snapshots, subscriptions
 from app.scheduler import start_scheduler, shutdown_scheduler
 import logging
 
@@ -22,6 +22,7 @@ app.include_router(auth.router)
 app.include_router(services.router)
 app.include_router(services.dashboard_router)
 app.include_router(snapshots.router)
+app.include_router(subscriptions.router)
 
 
 @app.on_event("startup")

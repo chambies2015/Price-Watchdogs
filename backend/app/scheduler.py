@@ -160,6 +160,8 @@ def should_check_service(service: Service) -> bool:
         return time_since_check >= timedelta(hours=24)
     elif service.check_frequency == CheckFrequency.weekly:
         return time_since_check >= timedelta(days=7)
+    elif service.check_frequency == CheckFrequency.twice_daily:
+        return time_since_check >= timedelta(hours=12)
     
     return False
 

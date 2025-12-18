@@ -8,8 +8,15 @@ export default function NewServicePage() {
   const router = useRouter();
 
   const handleSubmit = async (data: ServiceCreate) => {
-    await servicesApi.create(data);
-    router.push('/dashboard');
+    try {
+      await servicesApi.create(data);
+      router.push('/dashboard');
+    } catch (error: any) {
+      if (error.message && error.message.includes('limit')) {
+        throw new Error(error.message + ' Please upgrade to Pro for unlimited services.');
+      }
+      throw error;
+    }
   };
 
   return (

@@ -10,6 +10,10 @@ from app.models.change_event import ChangeEvent
 from app.schemas.service import ServiceCreate, ServiceUpdate, ServiceResponse
 from app.schemas.dashboard import DashboardSummaryResponse, ServiceSummary, ChangeEventSummary
 from app.core.auth import get_current_user
+from app.services.subscription_service import (
+    enforce_service_limit,
+    validate_check_frequency
+)
 import uuid
 
 router = APIRouter(prefix="/api/services", tags=["services"])
@@ -24,6 +28,9 @@ async def create_service(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    await enforce_service_limit(db, current_user.id)
+    await validate_check_frequency(db, current_user.id, service_data.check_frequency)
+    
     new_service = Service(
         id=uuid.uuid4(),
         user_id=current_user.id,
@@ -98,6 +105,10 @@ async def update_service(
         )
     
     update_data = service_data.model_dump(exclude_unset=True)
+    
+    if "check_frequency" in update_data:
+        await validate_check_frequency(db, current_user.id, update_data["check_frequency"])
+    
     for field, value in update_data.items():
         setattr(service, field, value)
     

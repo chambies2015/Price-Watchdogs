@@ -54,7 +54,13 @@ export default function ServiceDetailPage() {
       const updated = await servicesApi.update(serviceId, data);
       setService(updated);
       setActiveTab('overview');
-    } catch (err) {
+      setError('');
+    } catch (err: any) {
+      if (err.message && err.message.includes('frequency')) {
+        setError(err.message + ' Please upgrade to Pro to use faster checks.');
+      } else {
+        setError(err.message || 'Failed to update service');
+      }
       throw err;
     }
   };

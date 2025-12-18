@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Service, ServiceCreate, ServiceUpdate, CheckFrequency } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import { Service, ServiceCreate, ServiceUpdate, CheckFrequency, subscriptionsApi, Subscription } from '@/lib/api';
+import Link from 'next/link';
 
 interface ServiceFormProps {
   initialData?: Service;
@@ -28,6 +29,44 @@ export default function ServiceForm({
   );
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(false);
+
+  useEffect(() => {
+    if (!initialData) {
+      loadSubscription();
+    }
+  }, [initialData]);
+
+  const loadSubscription = async () => {
+    try {
+      setLoadingSubscription(true);
+      const sub = await subscriptionsApi.getCurrent();
+      setSubscription(sub);
+    } catch (err) {
+      console.error('Error loading subscription:', err);
+    } finally {
+      setLoadingSubscription(false);
+    }
+  };
+
+  const getAllowedFrequencies = (): CheckFrequency[] => {
+    if (!subscription) return ['daily', 'weekly'];
+    if (subscription.plan_type === 'free') {
+      return ['daily', 'weekly'];
+    }
+    return ['daily', 'weekly', 'twice_daily'];
+  };
+
+  const isAtLimit = (): boolean => {
+    if (!subscription) return false;
+    if (subscription.service_limit === null) return false;
+    return subscription.current_service_count >= subscription.service_limit;
+  };
+
+  const canUseFrequency = (freq: CheckFrequency): boolean => {
+    return getAllowedFrequencies().includes(freq);
+  };
 
   const validateUrl = (urlValue: string): boolean => {
     try {
@@ -79,11 +118,39 @@ export default function ServiceForm({
     }
   };
 
+  const allowedFrequencies = getAllowedFrequencies();
+  const atLimit = isAtLimit();
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
         <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-400">
           {error}
+        </div>
+      )}
+
+      {!initialData && subscription && atLimit && (
+        <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400">
+          <p className="font-semibold mb-2">Service Limit Reached</p>
+          <p className="mb-3">
+            You have reached your service limit ({subscription.current_service_count}/{subscription.service_limit}). 
+            Upgrade to Pro for unlimited services.
+          </p>
+          <Link
+            href="/pricing"
+            className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+          >
+            Upgrade to Pro
+          </Link>
+        </div>
+      )}
+
+      {!initialData && subscription && !atLimit && subscription.service_limit !== null && (
+        <div className="rounded-md bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+          <p>
+            You have {subscription.service_limit - subscription.current_service_count} service{subscription.service_limit - subscription.current_service_count !== 1 ? 's' : ''} remaining.
+            {subscription.plan_type === 'free' && ' Upgrade to Pro for unlimited services.'}
+          </p>
         </div>
       )}
       
@@ -127,12 +194,34 @@ export default function ServiceForm({
         <select
           id="frequency"
           value={checkFrequency}
-          onChange={(e) => setCheckFrequency(e.target.value as CheckFrequency)}
-          className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
+          onChange={(e) => {
+            const newFreq = e.target.value as CheckFrequency;
+            if (canUseFrequency(newFreq)) {
+              setCheckFrequency(newFreq);
+            }
+          }}
+          disabled={atLimit && !initialData}
+          className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
         >
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
+          {allowedFrequencies.includes('twice_daily') && (
+            <option value="twice_daily">Twice Daily (Every 12 hours)</option>
+          )}
         </select>
+        {subscription && subscription.plan_type === 'free' && checkFrequency === 'twice_daily' && (
+          <p className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
+            Twice-daily checks are only available for Pro plans.{' '}
+            <Link href="/pricing" className="underline hover:no-underline">
+              Upgrade to Pro
+            </Link>
+          </p>
+        )}
+        {!allowedFrequencies.includes(checkFrequency) && (
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+            This frequency is not available for your current plan.
+          </p>
+        )}
       </div>
       
       {initialData && (
@@ -193,8 +282,8 @@ export default function ServiceForm({
       <div className="flex gap-3">
         <button
           type="submit"
-          disabled={loading}
-          className="flex-1 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          disabled={loading || (atLimit && !initialData) || !canUseFrequency(checkFrequency)}
+          className="flex-1 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
           {loading ? 'Saving...' : submitLabel}
         </button>

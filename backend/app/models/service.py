@@ -10,6 +10,7 @@ from app.database import Base
 class CheckFrequency(str, enum.Enum):
     daily = "daily"
     weekly = "weekly"
+    twice_daily = "twice_daily"
 
 
 class Service(Base):
