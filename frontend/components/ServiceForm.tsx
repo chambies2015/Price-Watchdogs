@@ -22,6 +22,10 @@ export default function ServiceForm({
     initialData?.check_frequency || 'daily'
   );
   const [isActive, setIsActive] = useState(initialData?.is_active ?? true);
+  const [alertsEnabled, setAlertsEnabled] = useState(initialData?.alerts_enabled ?? true);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(
+    initialData?.alert_confidence_threshold ?? 0.6
+  );
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -57,7 +61,14 @@ export default function ServiceForm({
     
     try {
       if (initialData) {
-        await onSubmit({ name, url, check_frequency: checkFrequency, is_active: isActive });
+        await onSubmit({
+          name,
+          url,
+          check_frequency: checkFrequency,
+          is_active: isActive,
+          alerts_enabled: alertsEnabled,
+          alert_confidence_threshold: confidenceThreshold,
+        });
       } else {
         await onSubmit({ name, url, check_frequency: checkFrequency });
       }
@@ -125,18 +136,58 @@ export default function ServiceForm({
       </div>
       
       {initialData && (
-        <div className="flex items-center">
-          <input
-            id="is_active"
-            type="checkbox"
-            checked={isActive}
-            onChange={(e) => setIsActive(e.target.checked)}
-            className="h-4 w-4 rounded border-zinc-300 text-zinc-600 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800"
-          />
-          <label htmlFor="is_active" className="ml-2 block text-sm text-zinc-700 dark:text-zinc-300">
-            Active (monitoring enabled)
-          </label>
-        </div>
+        <>
+          <div className="flex items-center">
+            <input
+              id="is_active"
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="h-4 w-4 rounded border-zinc-300 text-zinc-600 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800"
+            />
+            <label htmlFor="is_active" className="ml-2 block text-sm text-zinc-700 dark:text-zinc-300">
+              Active (monitoring enabled)
+            </label>
+          </div>
+          
+          <div className="space-y-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Alert Settings</h3>
+            
+            <div className="flex items-center">
+              <input
+                id="alerts_enabled"
+                type="checkbox"
+                checked={alertsEnabled}
+                onChange={(e) => setAlertsEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-zinc-300 text-zinc-600 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800"
+              />
+              <label htmlFor="alerts_enabled" className="ml-2 block text-sm text-zinc-700 dark:text-zinc-300">
+                Enable email alerts
+              </label>
+            </div>
+            
+            {alertsEnabled && (
+              <div>
+                <label htmlFor="confidence_threshold" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Confidence Threshold
+                </label>
+                <input
+                  id="confidence_threshold"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={confidenceThreshold}
+                  onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value) || 0.6)}
+                  className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
+                />
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  Only send alerts for changes with confidence above this threshold (0.0 - 1.0)
+                </p>
+              </div>
+            )}
+          </div>
+        </>
       )}
       
       <div className="flex gap-3">

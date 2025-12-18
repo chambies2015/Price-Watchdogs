@@ -203,6 +203,12 @@ async def compare_snapshots(
     
     logger.info(f"Created ChangeEvent {change_event.id}: {change_type.value} with confidence {confidence}")
     
+    try:
+        from app.services.alert_service import create_alert_for_change_event
+        await create_alert_for_change_event(db, change_event)
+    except Exception as e:
+        logger.error(f"Error creating alert for change event {change_event.id}: {e}")
+    
     return change_event
 
 

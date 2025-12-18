@@ -24,7 +24,9 @@ async def create_service(
         user_id=current_user.id,
         name=service_data.name,
         url=service_data.url,
-        check_frequency=service_data.check_frequency
+        check_frequency=service_data.check_frequency,
+        alerts_enabled=True,
+        alert_confidence_threshold=0.6
     )
     
     db.add(new_service)
