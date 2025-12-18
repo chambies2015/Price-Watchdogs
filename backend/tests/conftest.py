@@ -79,7 +79,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest.fixture
-async def test_user(db_session: AsyncSession) -> AsyncGenerator[User, None]:
+async def test_user(db_session: AsyncSession):
     from app.core.security import get_password_hash
     import uuid
     
@@ -93,7 +93,7 @@ async def test_user(db_session: AsyncSession) -> AsyncGenerator[User, None]:
     await db_session.commit()
     await db_session.refresh(user)
     
-    yield user
+    return user
 
 
 @pytest.fixture
