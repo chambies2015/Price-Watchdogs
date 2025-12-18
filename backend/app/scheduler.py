@@ -7,6 +7,7 @@ import logging
 from app.database import AsyncSessionLocal
 from app.models.service import Service, CheckFrequency
 from app.services.snapshot_service import create_snapshot
+from app.services.diff_service import process_new_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,14 @@ async def fetch_service_pages():
                 try:
                     if should_check_service(service):
                         logger.info(f"Checking service {service.id}: {service.name}")
-                        await create_snapshot(db, service)
+                        snapshot = await create_snapshot(db, service)
+                        
+                        try:
+                            change_event = await process_new_snapshot(db, snapshot)
+                            if change_event:
+                                logger.info(f"Detected change for service {service.id}: {change_event.change_type.value}")
+                        except Exception as e:
+                            logger.error(f"Error processing diff for service {service.id}: {e}")
                     else:
                         logger.debug(f"Skipping service {service.id}: not due for check")
                         

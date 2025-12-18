@@ -6,9 +6,12 @@ from uuid import UUID
 from app.database import get_db
 from app.models.user import User
 from app.models.service import Service
+from app.models.change_event import ChangeEvent
 from app.schemas.snapshot import SnapshotResponse
+from app.schemas.change_event import ChangeEventResponse
 from app.core.auth import get_current_user
 from app.services.snapshot_service import get_service_snapshots, create_snapshot
+from app.services.diff_service import process_new_snapshot
 
 router = APIRouter(prefix="/api/services", tags=["snapshots"])
 
@@ -60,10 +63,81 @@ async def trigger_snapshot(
     
     try:
         snapshot = await create_snapshot(db, service)
+        
+        try:
+            await process_new_snapshot(db, snapshot)
+        except Exception as e:
+            pass
+        
         return snapshot
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create snapshot: {str(e)}"
         )
+
+
+@router.get("/{service_id}/changes", response_model=List[ChangeEventResponse])
+async def list_service_changes(
+    service_id: UUID,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Service).where(
+            Service.id == service_id,
+            Service.user_id == current_user.id
+        )
+    )
+    service = result.scalar_one_or_none()
+    
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found"
+        )
+    
+    result = await db.execute(
+        select(ChangeEvent)
+        .where(ChangeEvent.service_id == service_id)
+        .order_by(ChangeEvent.created_at.desc())
+        .limit(limit)
+    )
+    changes = result.scalars().all()
+    return changes
+
+
+@router.get("/changes/{change_id}", response_model=ChangeEventResponse)
+async def get_change_event(
+    change_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(ChangeEvent).where(ChangeEvent.id == change_id)
+    )
+    change_event = result.scalar_one_or_none()
+    
+    if not change_event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Change event not found"
+        )
+    
+    result = await db.execute(
+        select(Service).where(
+            Service.id == change_event.service_id,
+            Service.user_id == current_user.id
+        )
+    )
+    service = result.scalar_one_or_none()
+    
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found"
+        )
+    
+    return change_event
 
