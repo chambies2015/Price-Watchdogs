@@ -1,4 +1,4 @@
-from app.api import auth, services
+from app.api import auth, services, snapshots
 
-__all__ = ["auth", "services"]
+__all__ = ["auth", "services", "snapshots"]
 
