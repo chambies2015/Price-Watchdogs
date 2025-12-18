@@ -1,4 +1,4 @@
-from app.api import auth
+from app.api import auth, services
 
-__all__ = ["auth"]
+__all__ = ["auth", "services"]
 
