@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     mailgun_domain: Optional[str] = None
     mailgun_from_email: Optional[str] = None
     frontend_base_url: str = "http://localhost:3000"
+    stripe_secret_key: Optional[str] = None
+    stripe_publishable_key: Optional[str] = None
+    stripe_webhook_secret: Optional[str] = None
 
     class Config:
         env_file = ".env"
