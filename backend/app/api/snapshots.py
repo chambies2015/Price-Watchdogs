@@ -8,7 +8,8 @@ from app.models.user import User
 from app.models.service import Service
 from app.models.change_event import ChangeEvent
 from app.schemas.snapshot import SnapshotResponse
-from app.schemas.change_event import ChangeEventResponse
+from app.schemas.change_event import ChangeEventResponse, ChangeEventDetailResponse
+from app.models.snapshot import Snapshot
 from app.core.auth import get_current_user
 from app.services.snapshot_service import get_service_snapshots, create_snapshot
 from app.services.diff_service import process_new_snapshot
@@ -108,7 +109,7 @@ async def list_service_changes(
     return changes
 
 
-@router.get("/changes/{change_id}", response_model=ChangeEventResponse)
+@router.get("/changes/{change_id}", response_model=ChangeEventDetailResponse)
 async def get_change_event(
     change_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -139,5 +140,48 @@ async def get_change_event(
             detail="Service not found"
         )
     
-    return change_event
+    old_snapshot = None
+    if change_event.old_snapshot_id:
+        result = await db.execute(
+            select(Snapshot).where(Snapshot.id == change_event.old_snapshot_id)
+        )
+        old_snapshot = result.scalar_one_or_none()
+    
+    result = await db.execute(
+        select(Snapshot).where(Snapshot.id == change_event.new_snapshot_id)
+    )
+    new_snapshot = result.scalar_one_or_none()
+    
+    if not new_snapshot:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="New snapshot not found"
+        )
+    
+    return ChangeEventDetailResponse(
+        id=change_event.id,
+        service_id=change_event.service_id,
+        old_snapshot_id=change_event.old_snapshot_id,
+        new_snapshot_id=change_event.new_snapshot_id,
+        change_type=change_event.change_type,
+        summary=change_event.summary,
+        confidence_score=change_event.confidence_score,
+        created_at=change_event.created_at,
+        old_snapshot=SnapshotResponse(
+            id=old_snapshot.id,
+            service_id=old_snapshot.service_id,
+            raw_html_hash=old_snapshot.raw_html_hash,
+            normalized_content_hash=old_snapshot.normalized_content_hash,
+            normalized_content=old_snapshot.normalized_content,
+            created_at=old_snapshot.created_at
+        ) if old_snapshot else None,
+        new_snapshot=SnapshotResponse(
+            id=new_snapshot.id,
+            service_id=new_snapshot.service_id,
+            raw_html_hash=new_snapshot.raw_html_hash,
+            normalized_content_hash=new_snapshot.normalized_content_hash,
+            normalized_content=new_snapshot.normalized_content,
+            created_at=new_snapshot.created_at
+        )
+    )
 

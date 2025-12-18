@@ -4,29 +4,34 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { servicesApi, Service } from '@/lib/api';
+import { dashboardApi, ServiceSummary } from '@/lib/api';
 import ServiceList from '@/components/ServiceList';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import ErrorMessage from '@/components/ErrorMessage';
+import EmptyState from '@/components/EmptyState';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const [services, setServices] = useState<Service[]>([]);
+  const [summary, setSummary] = useState<{ services: ServiceSummary[]; total_services: number; active_services: number; recent_changes_count: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const data = await servicesApi.list();
-        setServices(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load services');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchDashboard = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await dashboardApi.getSummary();
+      setSummary(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchServices();
+  useEffect(() => {
+    fetchDashboard();
   }, []);
 
   const handleLogout = () => {
@@ -60,18 +65,41 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {summary && (
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">Total Services</p>
+            <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">{summary.total_services}</p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">Active Services</p>
+            <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">{summary.active_services}</p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">Recent Changes</p>
+            <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">{summary.recent_changes_count}</p>
+          </div>
+        </div>
+      )}
       
       {loading ? (
         <div className="rounded-lg border border-zinc-200 bg-white p-12 text-center dark:border-zinc-700 dark:bg-zinc-900">
-          <p className="text-zinc-600 dark:text-zinc-400">Loading services...</p>
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-zinc-600 dark:text-zinc-400">Loading services...</p>
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-        </div>
-      ) : (
-        <ServiceList services={services} />
-      )}
+        <ErrorMessage message={error} onRetry={fetchDashboard} />
+      ) : summary && summary.services.length === 0 ? (
+        <EmptyState
+          title="No services yet"
+          message="Add your first service to start monitoring pricing changes."
+          actionLabel="Add Service"
+          actionHref="/services/new"
+        />
+      ) : summary ? (
+        <ServiceList services={summary.services} />
+      ) : null}
     </div>
   );
 }
