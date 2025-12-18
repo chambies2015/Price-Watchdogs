@@ -21,7 +21,7 @@ class Service(Base):
     url = Column(String, nullable=False)
     check_frequency = Column(Enum(CheckFrequency), default=CheckFrequency.daily, nullable=False)
     last_checked_at = Column(DateTime, nullable=True)
-    last_snapshot_id = Column(UUID(as_uuid=True), ForeignKey("snapshots.id"), nullable=True)
+    last_snapshot_id = Column(UUID(as_uuid=True), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
