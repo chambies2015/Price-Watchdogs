@@ -9,4 +9,5 @@ python-dotenv==1.0.1
 python-multipart==0.0.18
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.4.0
+apscheduler==3.10.4
 
