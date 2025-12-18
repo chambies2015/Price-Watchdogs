@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /billing/
+Disallow: /services/
+Disallow: /checkout/
+
+Sitemap: https://pricewatchdogs.com/sitemap.xml
+

@@ -11,10 +11,13 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
+os.environ["ENVIRONMENT"] = "test"
 
 from app.database import Base, get_db
 from app.models import User, Service, Snapshot, ChangeEvent, Alert, Subscription, Payment
 from app.main import app
+from app.scheduler import scheduler, start_scheduler, shutdown_scheduler
+from app.core.security import create_access_token
 
 TEST_DB_FILE = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
 TEST_DB_FILE.close()
@@ -48,6 +51,15 @@ async def setup_database():
     yield
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_scheduler():
+    if not scheduler.running:
+        start_scheduler()
+    yield
+    if scheduler.running:
+        shutdown_scheduler()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -97,17 +109,20 @@ async def test_user(db_session: AsyncSession):
 
 
 @pytest.fixture
-async def auth_headers(client: AsyncClient) -> dict:
-    response = await client.post(
-        "/api/auth/register",
-        json={"email": "authtest@example.com", "password": "testpass123"}
+async def auth_headers(db_session: AsyncSession) -> dict:
+    from app.core.security import get_password_hash
+    import uuid
+    
+    user = User(
+        id=uuid.uuid4(),
+        email="authtest@example.com",
+        password_hash=get_password_hash("testpass123")
     )
     
-    login_response = await client.post(
-        "/api/auth/login",
-        json={"email": "authtest@example.com", "password": "testpass123"}
-    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     
-    token = login_response.json()["access_token"]
+    token = create_access_token(data={"sub": str(user.id)})
     return {"Authorization": f"Bearer {token}"}
 

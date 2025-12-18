@@ -17,7 +17,7 @@ async def test_rapid_login_attempts(client: AsyncClient):
         response = await client.post("/api/auth/login", json=login_data)
         responses.append(response.status_code)
     
-    assert all(status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN] for status_code in responses)
+    assert all(status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN, status.HTTP_429_TOO_MANY_REQUESTS] for status_code in responses)
 
 
 @pytest.mark.security

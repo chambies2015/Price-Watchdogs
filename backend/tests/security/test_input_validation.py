@@ -58,13 +58,13 @@ async def test_sql_injection_in_url(client: AsyncClient, auth_headers: dict):
 @pytest.mark.asyncio
 async def test_xss_in_service_name(client: AsyncClient, auth_headers: dict):
     xss_payloads = [
-        "<script>alert('XSS')</script>",
-        "<img src=x onerror=alert('XSS')>",
-        "javascript:alert('XSS')",
-        "<svg onload=alert('XSS')>"
+        ("<script>alert('XSS')</script>", "alert('XSS')"),
+        ("<img src=x onerror=alert('XSS')>", "x"),
+        ("javascript:alert('XSS')", "alert('XSS')"),
+        ("<svg onload=alert('XSS')>", "alert('XSS')")
     ]
     
-    for payload in xss_payloads:
+    for payload, expected_sanitized in xss_payloads:
         response = await client.post(
             "/api/services",
             json={
@@ -78,7 +78,10 @@ async def test_xss_in_service_name(client: AsyncClient, auth_headers: dict):
         if response.status_code == 201:
             data = response.json()
             assert "id" in data
-            assert data.get("name") == payload
+            assert "<script>" not in data.get("name", ""), "Script tags should be sanitized"
+            assert "javascript:" not in data.get("name", ""), "JavaScript protocol should be sanitized"
+            sanitized_name = data.get("name", "")
+            assert sanitized_name == expected_sanitized or sanitized_name == "Untitled Service"
 
 
 @pytest.mark.security

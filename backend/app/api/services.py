@@ -15,6 +15,7 @@ from app.services.subscription_service import (
     validate_check_frequency
 )
 import uuid
+import bleach
 
 router = APIRouter(prefix="/api/services", tags=["services"])
 dashboard_router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -31,11 +32,18 @@ async def create_service(
     await enforce_service_limit(db, current_user.id)
     await validate_check_frequency(db, current_user.id, service_data.check_frequency)
     
+    sanitized_name = bleach.clean(service_data.name, tags=[], strip=True)
+    sanitized_name = sanitized_name.replace("javascript:", "").strip()
+    if not sanitized_name:
+        sanitized_name = "Untitled Service"
+    
+    sanitized_url = bleach.clean(service_data.url, tags=[], strip=True)
+    
     new_service = Service(
         id=uuid.uuid4(),
         user_id=current_user.id,
-        name=service_data.name,
-        url=service_data.url,
+        name=sanitized_name,
+        url=sanitized_url,
         check_frequency=service_data.check_frequency,
         alerts_enabled=True,
         alert_confidence_threshold=0.6
@@ -105,6 +113,15 @@ async def update_service(
         )
     
     update_data = service_data.model_dump(exclude_unset=True)
+    
+    if "name" in update_data:
+        update_data["name"] = bleach.clean(update_data["name"], tags=[], strip=True)
+        update_data["name"] = update_data["name"].replace("javascript:", "").strip()
+        if not update_data["name"]:
+            update_data["name"] = "Untitled Service"
+    
+    if "url" in update_data:
+        update_data["url"] = bleach.clean(update_data["url"], tags=[], strip=True)
     
     if "check_frequency" in update_data:
         await validate_check_frequency(db, current_user.id, update_data["check_frequency"])
