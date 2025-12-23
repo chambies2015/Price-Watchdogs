@@ -13,33 +13,37 @@ interface DiffViewProps {
 export default function DiffView({ oldContent, newContent, viewMode = 'side-by-side', className = '' }: DiffViewProps) {
   const [currentViewMode, setCurrentViewMode] = useState<'side-by-side' | 'unified'>(viewMode);
 
+  const ViewModeToggle = () => (
+    <div className="mb-4 flex items-center justify-end">
+      <div className="flex gap-2 rounded-md border border-zinc-200 dark:border-zinc-700 p-1">
+        <button
+          onClick={() => setCurrentViewMode('side-by-side')}
+          className={`rounded px-3 py-1 text-sm font-medium ${
+            currentViewMode === 'side-by-side'
+              ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900'
+              : 'text-zinc-600 dark:text-zinc-400'
+          }`}
+        >
+          Side-by-Side
+        </button>
+        <button
+          onClick={() => setCurrentViewMode('unified')}
+          className={`rounded px-3 py-1 text-sm font-medium ${
+            currentViewMode === 'unified'
+              ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900'
+              : 'text-zinc-600 dark:text-zinc-400'
+          }`}
+        >
+          Unified
+        </button>
+      </div>
+    </div>
+  );
+
   if (currentViewMode === 'side-by-side') {
     return (
       <div className={className}>
-        <div className="mb-4 flex items-center justify-end">
-          <div className="flex gap-2 rounded-md border border-zinc-200 dark:border-zinc-700 p-1">
-            <button
-              onClick={() => setCurrentViewMode('side-by-side')}
-              className={`rounded px-3 py-1 text-sm font-medium ${
-                currentViewMode === 'side-by-side'
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900'
-                  : 'text-zinc-600 dark:text-zinc-400'
-              }`}
-            >
-              Side-by-Side
-            </button>
-            <button
-              onClick={() => setCurrentViewMode('unified')}
-              className={`rounded px-3 py-1 text-sm font-medium ${
-                currentViewMode === 'unified'
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900'
-                  : 'text-zinc-600 dark:text-zinc-400'
-              }`}
-            >
-              Unified
-            </button>
-          </div>
-        </div>
+        <ViewModeToggle />
         <SideBySideDiff oldContent={oldContent} newContent={newContent} />
       </div>
     );
@@ -51,30 +55,7 @@ export default function DiffView({ oldContent, newContent, viewMode = 'side-by-s
 
   return (
     <div className={className}>
-      <div className="mb-4 flex items-center justify-end">
-        <div className="flex gap-2 rounded-md border border-zinc-200 dark:border-zinc-700 p-1">
-          <button
-            onClick={() => setCurrentViewMode('side-by-side')}
-            className={`rounded px-3 py-1 text-sm font-medium ${
-              currentViewMode === 'side-by-side'
-                ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900'
-                : 'text-zinc-600 dark:text-zinc-400'
-            }`}
-          >
-            Side-by-Side
-          </button>
-          <button
-            onClick={() => setCurrentViewMode('unified')}
-            className={`rounded px-3 py-1 text-sm font-medium ${
-              currentViewMode === 'unified'
-                ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900'
-                : 'text-zinc-600 dark:text-zinc-400'
-            }`}
-          >
-            Unified
-          </button>
-        </div>
-      </div>
+      <ViewModeToggle />
       <div className="overflow-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800" style={{ maxHeight: '600px' }}>
         <table className="w-full font-mono text-sm">
           <tbody>
