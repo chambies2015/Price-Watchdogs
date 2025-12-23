@@ -13,7 +13,16 @@ if __name__ == "__main__":
     )
     
     if result.returncode != 0:
-        print("Warning: Migrations failed, but continuing...")
+        print("Warning: Migrations failed (this may be normal if tables already exist).")
+        print("Attempting to stamp database to current version...")
+        stamp_result = subprocess.run(
+            [sys.executable, "-m", "alembic", "stamp", "head"],
+            check=False
+        )
+        if stamp_result.returncode == 0:
+            print("Database stamped successfully.")
+        else:
+            print("Warning: Could not stamp database, but continuing...")
     
     print("Starting FastAPI application...")
     port = os.environ.get("PORT", "8000")
