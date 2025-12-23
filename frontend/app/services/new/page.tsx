@@ -1,15 +1,24 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { servicesApi, ServiceCreate } from '@/lib/api';
+import { servicesApi, ServiceCreate, ServiceUpdate } from '@/lib/api';
 import ServiceForm from '@/components/ServiceForm';
 
 export default function NewServicePage() {
   const router = useRouter();
 
-  const handleSubmit = async (data: ServiceCreate) => {
+  const handleSubmit = async (data: ServiceCreate | ServiceUpdate) => {
+    if (!data.name || !data.url) {
+      throw new Error('Name and URL are required');
+    }
+    
     try {
-      await servicesApi.create(data);
+      const createData: ServiceCreate = {
+        name: data.name,
+        url: data.url,
+        check_frequency: data.check_frequency,
+      };
+      await servicesApi.create(createData);
       router.push('/dashboard');
     } catch (error: any) {
       if (error.message && error.message.includes('limit')) {
