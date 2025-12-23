@@ -14,10 +14,30 @@ services:
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: 30
+      - key: ENVIRONMENT
+        value: production
       - key: DATABASE_URL
         fromDatabase:
           name: price-watchdogs-db
           property: connectionString
+      - key: CORS_ORIGINS
+        value: https://price-watchdogs-frontend.onrender.com
+      - key: FRONTEND_BASE_URL
+        value: https://price-watchdogs-frontend.onrender.com
+
+  - type: web
+    name: price-watchdogs-frontend
+    runtime: node
+    plan: starter
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.x
+      - key: NEXT_PUBLIC_API_URL
+        value: https://price-watchdogs-api.onrender.com
+      - key: NEXT_PUBLIC_BASE_URL
+        value: https://price-watchdogs-frontend.onrender.com
 
 databases:
   - name: price-watchdogs-db
