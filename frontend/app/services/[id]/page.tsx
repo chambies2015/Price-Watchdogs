@@ -11,6 +11,10 @@ import ErrorMessage from '@/components/ErrorMessage';
 
 type Tab = 'overview' | 'settings' | 'history' | 'snapshots';
 
+export function generateStaticParams() {
+  return [];
+}
+
 export default function ServiceDetailPage() {
   const router = useRouter();
   const params = useParams();

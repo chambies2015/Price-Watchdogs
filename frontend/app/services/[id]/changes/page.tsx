@@ -8,6 +8,10 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import EmptyState from '@/components/EmptyState';
 
+export function generateStaticParams() {
+  return [];
+}
+
 export default function ChangeHistoryPage() {
   const router = useRouter();
   const params = useParams();

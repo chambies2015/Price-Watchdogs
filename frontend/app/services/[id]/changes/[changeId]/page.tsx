@@ -7,6 +7,10 @@ import DiffView from '@/components/DiffView';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 
+export function generateStaticParams() {
+  return [];
+}
+
 function getChangeTypeLabel(changeType: ChangeType): string {
   const labels: Record<ChangeType, string> = {
     price_increase: 'Price Increase',
