@@ -71,11 +71,15 @@ async def health_check():
     return {"status": "healthy"}
 
 frontend_build_path = Path(__file__).parent.parent.parent / "frontend" / "out"
+logger.info(f"Looking for frontend build at: {frontend_build_path}")
+logger.info(f"Frontend build path exists: {frontend_build_path.exists()}")
 
 if frontend_build_path.exists():
+    logger.info("Frontend build found, setting up static file serving")
     static_assets_path = frontend_build_path / "_next" / "static"
     if static_assets_path.exists():
         app.mount("/_next/static", StaticFiles(directory=str(static_assets_path)), name="static")
+        logger.info(f"Mounted static assets at: {static_assets_path}")
     
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
@@ -101,6 +105,7 @@ if frontend_build_path.exists():
         
         return JSONResponse({"detail": "Not found"}, status_code=404)
 else:
+    logger.warning(f"Frontend build not found at {frontend_build_path}. Frontend will not be served.")
     @app.get("/")
     async def root():
         return {"message": "Price Watchdogs API - Frontend not built. Run 'cd frontend && npm run build'"}

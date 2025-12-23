@@ -4,8 +4,16 @@ services:
     runtime: python
     plan: starter
     buildCommand: |
-      cd frontend && npm install && npm run build
-      cd ../backend && pip install -r requirements.txt
+      echo "Building frontend..."
+      cd frontend
+      npm install
+      npm run build
+      echo "Frontend build complete. Checking output..."
+      ls -la out/ || echo "Warning: frontend/out directory not found"
+      echo "Building backend..."
+      cd ../backend
+      pip install -r requirements.txt
+      echo "Build complete"
     startCommand: cd backend && python start.py
     envVars:
       - key: PYTHON_VERSION

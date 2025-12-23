@@ -18,44 +18,79 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def upgrade() -> None:
-    op.create_table(
-        'subscriptions',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('stripe_subscription_id', sa.String(), nullable=True),
-        sa.Column('stripe_customer_id', sa.String(), nullable=True),
-        sa.Column('plan_type', sa.Enum('free', 'pro_monthly', 'pro_annual', name='plantype'), nullable=False),
-        sa.Column('status', sa.Enum('active', 'canceled', 'past_due', 'trialing', name='subscriptionstatus'), nullable=False),
-        sa.Column('current_period_start', sa.DateTime(), nullable=True),
-        sa.Column('current_period_end', sa.DateTime(), nullable=True),
-        sa.Column('cancel_at_period_end', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.Column('updated_at', sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id']),
+def table_exists(table_name: str) -> bool:
+    bind = op.get_bind()
+    result = bind.execute(
+        sa.text(
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = :table_name)"
+        ),
+        {"table_name": table_name}
     )
-    op.create_index('ix_subscriptions_user_id', 'subscriptions', ['user_id'], unique=True)
-    op.create_index('ix_subscriptions_stripe_subscription_id', 'subscriptions', ['stripe_subscription_id'], unique=True)
-    op.create_index('ix_subscriptions_stripe_customer_id', 'subscriptions', ['stripe_customer_id'], unique=True)
+    return result.scalar()
 
-    op.create_table(
-        'payments',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('subscription_id', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column('stripe_payment_intent_id', sa.String(), nullable=True),
-        sa.Column('stripe_invoice_id', sa.String(), nullable=True),
-        sa.Column('amount', sa.Integer(), nullable=False),
-        sa.Column('currency', sa.String(), nullable=False, server_default='usd'),
-        sa.Column('status', sa.String(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id']),
-        sa.ForeignKeyConstraint(['subscription_id'], ['subscriptions.id']),
+
+def index_exists(index_name: str, table_name: str) -> bool:
+    bind = op.get_bind()
+    result = bind.execute(
+        sa.text(
+            "SELECT EXISTS (SELECT FROM pg_indexes WHERE indexname = :index_name AND tablename = :table_name)"
+        ),
+        {"index_name": index_name, "table_name": table_name}
     )
-    op.create_index('ix_payments_user_id', 'payments', ['user_id'])
-    op.create_index('ix_payments_subscription_id', 'payments', ['subscription_id'])
-    op.create_index('ix_payments_stripe_payment_intent_id', 'payments', ['stripe_payment_intent_id'], unique=True)
-    op.create_index('ix_payments_stripe_invoice_id', 'payments', ['stripe_invoice_id'], unique=True)
+    return result.scalar()
+
+
+def upgrade() -> None:
+    if not table_exists('subscriptions'):
+        op.create_table(
+            'subscriptions',
+            sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+            sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('stripe_subscription_id', sa.String(), nullable=True),
+            sa.Column('stripe_customer_id', sa.String(), nullable=True),
+            sa.Column('plan_type', sa.Enum('free', 'pro_monthly', 'pro_annual', name='plantype'), nullable=False),
+            sa.Column('status', sa.Enum('active', 'canceled', 'past_due', 'trialing', name='subscriptionstatus'), nullable=False),
+            sa.Column('current_period_start', sa.DateTime(), nullable=True),
+            sa.Column('current_period_end', sa.DateTime(), nullable=True),
+            sa.Column('cancel_at_period_end', sa.Boolean(), nullable=False, server_default='false'),
+            sa.Column('created_at', sa.DateTime(), nullable=False),
+            sa.Column('updated_at', sa.DateTime(), nullable=False),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id']),
+        )
+    
+    if table_exists('subscriptions'):
+        if not index_exists('ix_subscriptions_user_id', 'subscriptions'):
+            op.create_index('ix_subscriptions_user_id', 'subscriptions', ['user_id'], unique=True)
+        if not index_exists('ix_subscriptions_stripe_subscription_id', 'subscriptions'):
+            op.create_index('ix_subscriptions_stripe_subscription_id', 'subscriptions', ['stripe_subscription_id'], unique=True)
+        if not index_exists('ix_subscriptions_stripe_customer_id', 'subscriptions'):
+            op.create_index('ix_subscriptions_stripe_customer_id', 'subscriptions', ['stripe_customer_id'], unique=True)
+
+    if not table_exists('payments'):
+        op.create_table(
+            'payments',
+            sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+            sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('subscription_id', postgresql.UUID(as_uuid=True), nullable=True),
+            sa.Column('stripe_payment_intent_id', sa.String(), nullable=True),
+            sa.Column('stripe_invoice_id', sa.String(), nullable=True),
+            sa.Column('amount', sa.Integer(), nullable=False),
+            sa.Column('currency', sa.String(), nullable=False, server_default='usd'),
+            sa.Column('status', sa.String(), nullable=False),
+            sa.Column('created_at', sa.DateTime(), nullable=False),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id']),
+            sa.ForeignKeyConstraint(['subscription_id'], ['subscriptions.id']),
+        )
+    
+    if table_exists('payments'):
+        if not index_exists('ix_payments_user_id', 'payments'):
+            op.create_index('ix_payments_user_id', 'payments', ['user_id'])
+        if not index_exists('ix_payments_subscription_id', 'payments'):
+            op.create_index('ix_payments_subscription_id', 'payments', ['subscription_id'])
+        if not index_exists('ix_payments_stripe_payment_intent_id', 'payments'):
+            op.create_index('ix_payments_stripe_payment_intent_id', 'payments', ['stripe_payment_intent_id'], unique=True)
+        if not index_exists('ix_payments_stripe_invoice_id', 'payments'):
+            op.create_index('ix_payments_stripe_invoice_id', 'payments', ['stripe_invoice_id'], unique=True)
 
 
 def downgrade() -> None:

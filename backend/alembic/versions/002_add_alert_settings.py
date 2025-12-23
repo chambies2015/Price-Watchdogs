@@ -17,9 +17,22 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def column_exists(table_name: str, column_name: str) -> bool:
+    bind = op.get_bind()
+    result = bind.execute(
+        sa.text(
+            "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = :table_name AND column_name = :column_name)"
+        ),
+        {"table_name": table_name, "column_name": column_name}
+    )
+    return result.scalar()
+
+
 def upgrade() -> None:
-    op.add_column('services', sa.Column('alerts_enabled', sa.Boolean(), nullable=False, server_default='true'))
-    op.add_column('services', sa.Column('alert_confidence_threshold', sa.Float(), nullable=False, server_default='0.6'))
+    if not column_exists('services', 'alerts_enabled'):
+        op.add_column('services', sa.Column('alerts_enabled', sa.Boolean(), nullable=False, server_default='true'))
+    if not column_exists('services', 'alert_confidence_threshold'):
+        op.add_column('services', sa.Column('alert_confidence_threshold', sa.Float(), nullable=False, server_default='0.6'))
 
 
 def downgrade() -> None:
