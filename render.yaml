@@ -1,9 +1,11 @@
 services:
   - type: web
-    name: price-watchdogs-api
+    name: price-watchdogs
     runtime: python
     plan: starter
-    buildCommand: cd backend && pip install -r requirements.txt
+    buildCommand: |
+      cd frontend && npm install && npm run build
+      cd ../backend && pip install -r requirements.txt
     startCommand: cd backend && python start.py
     envVars:
       - key: PYTHON_VERSION
@@ -20,24 +22,14 @@ services:
         fromDatabase:
           name: price-watchdogs-db
           property: connectionString
-      - key: CORS_ORIGINS
-        value: https://price-watchdogs-frontend.onrender.com
-      - key: FRONTEND_BASE_URL
-        value: https://price-watchdogs-frontend.onrender.com
-
-  - type: web
-    name: price-watchdogs-frontend
-    runtime: node
-    plan: starter
-    buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npm start
-    envVars:
-      - key: NODE_VERSION
-        value: 20.x
       - key: NEXT_PUBLIC_API_URL
-        value: https://price-watchdogs-api.onrender.com
+        value: /api
       - key: NEXT_PUBLIC_BASE_URL
-        value: https://price-watchdogs-frontend.onrender.com
+        value: https://price-watchdogs.onrender.com
+      - key: CORS_ORIGINS
+        value: ""
+      - key: FRONTEND_BASE_URL
+        value: https://price-watchdogs.onrender.com
 
 databases:
   - name: price-watchdogs-db

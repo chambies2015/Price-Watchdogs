@@ -1,12 +1,14 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from app.database import engine, Base
 from app.api import auth, services, snapshots, subscriptions, health, metrics
 from app.scheduler import start_scheduler, shutdown_scheduler
 from app.config import settings
 from app.middleware.rate_limit import limiter
 from slowapi.errors import RateLimitExceeded
+from pathlib import Path
 import logging
 import os
 import json
@@ -64,6 +66,45 @@ app.include_router(subscriptions.router)
 app.include_router(health.router)
 app.include_router(metrics.router)
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+frontend_build_path = Path(__file__).parent.parent.parent / "frontend" / "out"
+
+if frontend_build_path.exists():
+    static_assets_path = frontend_build_path / "_next" / "static"
+    if static_assets_path.exists():
+        app.mount("/_next/static", StaticFiles(directory=str(static_assets_path)), name="static")
+    
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        if full_path.startswith("api/") or full_path == "api":
+            return JSONResponse({"detail": "Not found"}, status_code=404)
+        
+        if full_path.startswith("_next/"):
+            return JSONResponse({"detail": "Not found"}, status_code=404)
+        
+        file_path = frontend_build_path / full_path
+        
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+        
+        if file_path.exists() and file_path.is_dir():
+            index_in_dir = file_path / "index.html"
+            if index_in_dir.exists():
+                return FileResponse(index_in_dir)
+        
+        index_path = frontend_build_path / "index.html"
+        if index_path.exists():
+            return FileResponse(index_path)
+        
+        return JSONResponse({"detail": "Not found"}, status_code=404)
+else:
+    @app.get("/")
+    async def root():
+        return {"message": "Price Watchdogs API - Frontend not built. Run 'cd frontend && npm run build'"}
+
 
 @app.on_event("startup")
 async def startup():
@@ -78,13 +119,3 @@ async def startup():
 async def shutdown():
     shutdown_scheduler()
     logger.info("Application shutdown complete")
-
-
-@app.get("/")
-async def root():
-    return {"message": "Price Watchdogs API"}
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
