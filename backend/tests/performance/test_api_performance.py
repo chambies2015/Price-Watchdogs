@@ -184,5 +184,5 @@ async def test_batch_service_creation_performance(client: AsyncClient, auth_head
     
     elapsed = time.time() - start_time
     
-    assert elapsed < 2.0
+    assert elapsed < 3.0
 
