@@ -82,49 +82,49 @@ export interface ServiceUpdate {
 
 export const authApi = {
   register: async (data: RegisterRequest): Promise<User> => {
-    return apiRequest<User>('/api/auth/register', {
+    return apiRequest<User>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
   
   login: async (data: LoginRequest): Promise<TokenResponse> => {
-    return apiRequest<TokenResponse>('/api/auth/login', {
+    return apiRequest<TokenResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
   
   getMe: async (): Promise<User> => {
-    return apiRequest<User>('/api/auth/me');
+    return apiRequest<User>('/auth/me');
   },
 };
 
 export const servicesApi = {
   create: async (data: ServiceCreate): Promise<Service> => {
-    return apiRequest<Service>('/api/services', {
+    return apiRequest<Service>('/services', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
   
   list: async (): Promise<Service[]> => {
-    return apiRequest<Service[]>('/api/services');
+    return apiRequest<Service[]>('/services');
   },
   
   get: async (id: string): Promise<Service> => {
-    return apiRequest<Service>(`/api/services/${id}`);
+    return apiRequest<Service>(`/services/${id}`);
   },
   
   update: async (id: string, data: ServiceUpdate): Promise<Service> => {
-    return apiRequest<Service>(`/api/services/${id}`, {
+    return apiRequest<Service>(`/services/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
   
   delete: async (id: string): Promise<void> => {
-    return apiRequest<void>(`/api/services/${id}`, {
+    return apiRequest<void>(`/services/${id}`, {
       method: 'DELETE',
     });
   },
@@ -185,23 +185,23 @@ export interface DashboardSummary {
 
 export const dashboardApi = {
   getSummary: async (): Promise<DashboardSummary> => {
-    return apiRequest<DashboardSummary>('/api/dashboard/summary');
+    return apiRequest<DashboardSummary>('/dashboard/summary');
   },
 };
 
 export const changesApi = {
   getChangeEvent: async (id: string): Promise<ChangeEventDetail> => {
-    return apiRequest<ChangeEventDetail>(`/api/services/changes/${id}`);
+    return apiRequest<ChangeEventDetail>(`/services/changes/${id}`);
   },
   
   getServiceChanges: async (serviceId: string, limit: number = 20): Promise<ChangeEvent[]> => {
-    return apiRequest<ChangeEvent[]>(`/api/services/${serviceId}/changes?limit=${limit}`);
+    return apiRequest<ChangeEvent[]>(`/services/${serviceId}/changes?limit=${limit}`);
   },
 };
 
 export const snapshotsApi = {
   getServiceSnapshots: async (serviceId: string, limit: number = 10): Promise<Snapshot[]> => {
-    return apiRequest<Snapshot[]>(`/api/services/${serviceId}/snapshots?limit=${limit}`);
+    return apiRequest<Snapshot[]>(`/services/${serviceId}/snapshots?limit=${limit}`);
   },
 };
 
@@ -239,24 +239,24 @@ export interface CheckoutSession {
 
 export const subscriptionsApi = {
   getCurrent: async (): Promise<Subscription> => {
-    return apiRequest<Subscription>('/api/subscriptions/current');
+    return apiRequest<Subscription>('/subscriptions/current');
   },
   
   createCheckout: async (planType: PlanType): Promise<CheckoutSession> => {
-    return apiRequest<CheckoutSession>('/api/subscriptions/create-checkout', {
+    return apiRequest<CheckoutSession>('/subscriptions/create-checkout', {
       method: 'POST',
       body: JSON.stringify({ plan_type: planType }),
     });
   },
   
   cancel: async (): Promise<Subscription> => {
-    return apiRequest<Subscription>('/api/subscriptions/cancel', {
+    return apiRequest<Subscription>('/subscriptions/cancel', {
       method: 'POST',
     });
   },
   
   getPayments: async (): Promise<Payment[]> => {
-    return apiRequest<Payment[]>('/api/subscriptions/payments');
+    return apiRequest<Payment[]>('/subscriptions/payments');
   },
 };
 
