@@ -24,6 +24,14 @@ if __name__ == "__main__":
         else:
             print("Warning: Could not stamp database, but continuing...")
     
+    print("Setting up admin account...")
+    admin_result = subprocess.run(
+        [sys.executable, "scripts/auto_setup_admin.py"],
+        check=False
+    )
+    if admin_result.returncode != 0:
+        print("Warning: Admin setup failed, but continuing...")
+    
     print("Starting FastAPI application...")
     port = os.environ.get("PORT", "8000")
     subprocess.run(
