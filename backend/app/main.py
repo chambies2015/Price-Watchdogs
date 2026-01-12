@@ -76,10 +76,11 @@ logger.info(f"Frontend build path exists: {frontend_build_path.exists()}")
 
 if frontend_build_path.exists():
     logger.info("Frontend build found, setting up static file serving")
-    static_assets_path = frontend_build_path / "_next" / "static"
-    if static_assets_path.exists():
-        app.mount("/_next/static", StaticFiles(directory=str(static_assets_path)), name="static")
-        logger.info(f"Mounted static assets at: {static_assets_path}")
+    
+    next_dir = frontend_build_path / "_next"
+    if next_dir.exists():
+        app.mount("/_next", StaticFiles(directory=str(next_dir)), name="next_static")
+        logger.info("Mounted _next static files")
     
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
@@ -94,10 +95,17 @@ if frontend_build_path.exists():
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)
         
-        if file_path.exists() and file_path.is_dir():
+        if full_path.endswith("/"):
             index_in_dir = file_path / "index.html"
             if index_in_dir.exists():
                 return FileResponse(index_in_dir)
+        else:
+            full_path_with_slash = full_path + "/"
+            file_path_with_slash = frontend_build_path / full_path_with_slash
+            if file_path_with_slash.exists() and file_path_with_slash.is_dir():
+                index_file = file_path_with_slash / "index.html"
+                if index_file.exists():
+                    return FileResponse(index_file)
         
         index_path = frontend_build_path / "index.html"
         if index_path.exists():
