@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { setToken } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function LoginPage() {
 
     try {
       const tokenResponse = await authApi.login({ email, password });
+      setToken(tokenResponse.access_token);
       const user = await authApi.getMe();
       login(tokenResponse.access_token, user);
       router.push('/home');
