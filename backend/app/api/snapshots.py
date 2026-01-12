@@ -42,6 +42,44 @@ async def list_service_snapshots(
     return snapshots
 
 
+@router.get("/{service_id}/snapshots/{snapshot_id}", response_model=SnapshotResponse)
+async def get_snapshot(
+    service_id: UUID,
+    snapshot_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Service).where(
+            Service.id == service_id,
+            Service.user_id == current_user.id
+        )
+    )
+    service = result.scalar_one_or_none()
+    
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found"
+        )
+    
+    result = await db.execute(
+        select(Snapshot).where(
+            Snapshot.id == snapshot_id,
+            Snapshot.service_id == service_id
+        )
+    )
+    snapshot = result.scalar_one_or_none()
+    
+    if not snapshot:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Snapshot not found"
+        )
+    
+    return snapshot
+
+
 @router.post("/{service_id}/snapshots/trigger", response_model=SnapshotResponse)
 async def trigger_snapshot(
     service_id: UUID,

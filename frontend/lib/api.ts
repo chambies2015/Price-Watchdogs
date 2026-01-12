@@ -210,6 +210,10 @@ export const snapshotsApi = {
   getServiceSnapshots: async (serviceId: string, limit: number = 10): Promise<Snapshot[]> => {
     return apiRequest<Snapshot[]>(`/services/${serviceId}/snapshots?limit=${limit}`);
   },
+  
+  getSnapshot: async (serviceId: string, snapshotId: string): Promise<Snapshot> => {
+    return apiRequest<Snapshot>(`/services/${serviceId}/snapshots/${snapshotId}`);
+  },
 };
 
 export type PlanType = 'free' | 'pro_monthly' | 'pro_annual';
