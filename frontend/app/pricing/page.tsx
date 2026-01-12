@@ -46,7 +46,7 @@ export default function PricingPage() {
     {
       name: 'Pro Monthly',
       planType: 'pro_monthly' as PlanType,
-      price: '$9',
+      price: '$5',
       period: 'per month',
       features: [
         'Unlimited services',
@@ -62,10 +62,10 @@ export default function PricingPage() {
     {
       name: 'Pro Annual',
       planType: 'pro_annual' as PlanType,
-      price: '$90',
+      price: '$50',
       period: 'per year',
-      originalPrice: '$108',
-      savings: 'Save 2 months',
+      originalPrice: '$60',
+      savings: 'Save $10',
       features: [
         'Unlimited services',
         'Daily, weekly, or twice-daily checks',

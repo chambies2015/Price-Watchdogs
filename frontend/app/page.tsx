@@ -209,7 +209,7 @@ export default function Home() {
                   </span>
                 </div>
                 <h3 className="text-xl font-semibold text-white dark:text-black mb-2">Pro Monthly</h3>
-                <div className="text-3xl font-bold text-white dark:text-black mb-4">$9<span className="text-lg">/mo</span></div>
+                <div className="text-3xl font-bold text-white dark:text-black mb-4">$5<span className="text-lg">/mo</span></div>
                 <ul className="text-left text-zinc-200 dark:text-zinc-800 space-y-2 mb-6">
                   <li>✓ Unlimited services</li>
                   <li>✓ Faster checks (twice daily)</li>
@@ -226,8 +226,8 @@ export default function Home() {
               </div>
               <div className="bg-zinc-50 dark:bg-zinc-900 p-6 rounded-lg border border-zinc-200 dark:border-zinc-700">
                 <h3 className="text-xl font-semibold text-black dark:text-white mb-2">Pro Annual</h3>
-                <div className="text-3xl font-bold text-black dark:text-white mb-4">$90<span className="text-lg">/yr</span></div>
-                <div className="text-sm text-green-600 dark:text-green-400 mb-2">Save 2 months</div>
+                <div className="text-3xl font-bold text-black dark:text-white mb-4">$50<span className="text-lg">/yr</span></div>
+                <div className="text-sm text-green-600 dark:text-green-400 mb-2">Save $10 (17% off)</div>
                 <ul className="text-left text-zinc-600 dark:text-zinc-400 space-y-2 mb-6">
                   <li>✓ Unlimited services</li>
                   <li>✓ Faster checks (twice daily)</li>
