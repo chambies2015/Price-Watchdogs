@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { servicesApi, changesApi, snapshotsApi, Service, ServiceUpdate, ChangeEvent, Snapshot } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import ServiceForm from '@/components/ServiceForm';
 import ServiceDetail from '@/components/ServiceDetail';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -13,6 +14,7 @@ type Tab = 'overview' | 'settings' | 'history' | 'snapshots';
 
 export default function ServiceDetailClient({ serviceId }: { serviceId: string }) {
   const router = useRouter();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [service, setService] = useState<Service | null>(null);
   const [recentChanges, setRecentChanges] = useState<ChangeEvent[]>([]);
@@ -21,6 +23,8 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<string>('');
 
   const fetchData = async () => {
     setLoading(true);
@@ -80,6 +84,25 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
     }
   };
 
+  const handleManualCheck = async () => {
+    setChecking(true);
+    setCheckResult('');
+    setError('');
+    try {
+      const result = await servicesApi.triggerCheck(serviceId);
+      if (result.success) {
+        setCheckResult(result.change_detected ? '✅ Check complete! Change detected.' : '✅ Check complete! No changes detected.');
+        await fetchData();
+      } else {
+        setCheckResult(`❌ Check failed: ${result.error}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to trigger check');
+    } finally {
+      setChecking(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -114,13 +137,30 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">{service.name}</h1>
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
-        >
-          Back to Dashboard
-        </button>
+        <div className="flex items-center gap-3">
+          {user?.is_admin && (
+            <button
+              onClick={handleManualCheck}
+              disabled={checking}
+              className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {checking ? 'Checking...' : '🔍 Manual Check'}
+            </button>
+          )}
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            Back to Dashboard
+          </button>
+        </div>
       </div>
+
+      {checkResult && (
+        <div className={`mb-4 rounded-md p-3 text-sm ${checkResult.includes('✅') ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+          {checkResult}
+        </div>
+      )}
 
       <div className="mb-6 border-b border-zinc-200 dark:border-zinc-700">
         <nav className="-mb-px flex space-x-8">

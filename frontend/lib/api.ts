@@ -32,6 +32,7 @@ export async function apiRequest<T>(
 export interface User {
   id: string;
   email: string;
+  is_admin: boolean;
   created_at: string;
 }
 
@@ -126,6 +127,12 @@ export const servicesApi = {
   delete: async (id: string): Promise<void> => {
     return apiRequest<void>(`/services/${id}`, {
       method: 'DELETE',
+    });
+  },
+  
+  triggerCheck: async (id: string): Promise<{ success: boolean; snapshot_id?: string; change_detected?: boolean; change_id?: string | null; error?: string }> => {
+    return apiRequest(`/services/${id}/check`, {
+      method: 'POST',
     });
   },
 };

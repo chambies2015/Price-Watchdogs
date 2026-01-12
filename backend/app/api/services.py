@@ -161,6 +161,55 @@ async def delete_service(
     return None
 
 
+@router.post("/{service_id}/check", status_code=status.HTTP_202_ACCEPTED)
+async def trigger_manual_check(
+    service_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Manual checks are only available for admin users"
+        )
+    
+    result = await db.execute(
+        select(Service).where(
+            Service.id == service_id,
+            Service.user_id == current_user.id
+        )
+    )
+    service = result.scalar_one_or_none()
+    
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found"
+        )
+    
+    from app.services.snapshot_service import create_snapshot, process_new_snapshot
+    import asyncio
+    
+    async def run_check():
+        try:
+            snapshot = await create_snapshot(db, service)
+            change_event = await process_new_snapshot(db, snapshot)
+            return {
+                "success": True,
+                "snapshot_id": str(snapshot.id),
+                "change_detected": change_event is not None,
+                "change_id": str(change_event.id) if change_event else None
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    result = await run_check()
+    return result
+
+
 @dashboard_router.get("/summary", response_model=DashboardSummaryResponse)
 async def get_dashboard_summary(
     current_user: User = Depends(get_current_user),

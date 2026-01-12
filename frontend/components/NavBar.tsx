@@ -57,9 +57,16 @@ export default function NavBar() {
           </div>
           
           <div className="flex items-center gap-4">
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">
-              {user.email}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                {user.email}
+              </span>
+              {user.is_admin && (
+                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
+                  ADMIN
+                </span>
+              )}
+            </div>
             <Link
               href="/billing"
               className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"

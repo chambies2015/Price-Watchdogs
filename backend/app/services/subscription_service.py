@@ -48,6 +48,18 @@ async def check_service_limit(
     db: AsyncSession,
     user_id: UUID
 ) -> tuple[bool, int, Optional[int]]:
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    
+    if user and user.is_admin:
+        result = await db.execute(
+            select(func.count(Service.id)).where(Service.user_id == user_id)
+        )
+        current_count = result.scalar() or 0
+        return True, current_count, None
+    
     subscription = await get_user_subscription(db, user_id)
     limit = get_service_limit(subscription.plan_type)
     
@@ -95,6 +107,14 @@ async def validate_check_frequency(
     user_id: UUID,
     frequency: CheckFrequency
 ) -> None:
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    
+    if user and user.is_admin:
+        return
+    
     subscription = await get_user_subscription(db, user_id)
     
     if not can_use_check_frequency(subscription.plan_type, frequency):
