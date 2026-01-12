@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import NavBar from '@/components/NavBar';
 
 export default function HomeLayout({
   children,
@@ -30,6 +31,11 @@ export default function HomeLayout({
     return null;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <NavBar />
+      {children}
+    </>
+  );
 }
 

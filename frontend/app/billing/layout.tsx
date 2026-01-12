@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import NavBar from '@/components/NavBar';
 
-export default function DashboardLayout({
+export default function BillingLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -38,4 +38,3 @@ export default function DashboardLayout({
     </>
   );
 }
-
