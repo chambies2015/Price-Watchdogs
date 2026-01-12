@@ -1,6 +1,9 @@
 import asyncio
 import sys
 import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from sqlalchemy import select
 from app.database import AsyncSessionLocal
 from app.models.user import User
