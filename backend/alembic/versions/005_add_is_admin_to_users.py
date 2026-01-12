@@ -1,7 +1,7 @@
 """add_is_admin_to_users
 
-Revision ID: 005
-Revises: 004
+Revision ID: 005_add_is_admin_to_users
+Revises: 004_add_performance_indexes
 Create Date: 2026-01-12
 
 """
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = '005'
-down_revision = '004'
+revision = '005_add_is_admin_to_users'
+down_revision = '004_add_performance_indexes'
 branch_labels = None
 depends_on = None
 
