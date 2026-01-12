@@ -53,6 +53,12 @@ async def create_service(
     await db.commit()
     await db.refresh(new_service)
     
+    try:
+        from app.services.snapshot_service import create_snapshot
+        await create_snapshot(db, new_service)
+    except Exception as e:
+        pass
+    
     return new_service
 
 
@@ -187,7 +193,8 @@ async def trigger_manual_check(
             detail="Service not found"
         )
     
-    from app.services.snapshot_service import create_snapshot, process_new_snapshot
+    from app.services.snapshot_service import create_snapshot
+    from app.services.diff_service import process_new_snapshot
     import asyncio
     
     async def run_check():
