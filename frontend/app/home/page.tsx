@@ -194,7 +194,7 @@ export default function HomePage() {
               {summary.services.slice(0, 6).map((service) => (
                 <Link
                   key={service.id}
-                  href={`/services/${service.id}`}
+                  href={`/services/detail?id=${service.id}`}
                   className="group rounded-lg border border-zinc-200 bg-white p-6 hover:shadow-lg transition-shadow dark:border-zinc-700 dark:bg-zinc-900"
                 >
                   <div className="flex items-start justify-between mb-3">

@@ -94,7 +94,7 @@ export default function DiffViewClient({ serviceId, changeId }: { serviceId: str
           </div>
         </div>
         <button
-          onClick={() => router.push(`/services/${serviceId}/changes`)}
+          onClick={() => router.push(`/services/changes?id=${serviceId}`)}
           className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
         >
           Back to History

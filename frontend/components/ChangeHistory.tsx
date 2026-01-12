@@ -92,7 +92,7 @@ export default function ChangeHistory({ changes, serviceId }: ChangeHistoryProps
                     {isExpanded ? 'Hide' : 'Show'} Details
                   </button>
                   <Link
-                    href={`/services/${serviceId}/changes/${change.id}`}
+                    href={`/services/change-detail?id=${serviceId}&changeId=${change.id}`}
                     className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
                   >
                     View Diff

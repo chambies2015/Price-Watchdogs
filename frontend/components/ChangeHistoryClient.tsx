@@ -38,7 +38,7 @@ export default function ChangeHistoryClient({ serviceId }: { serviceId: string }
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">Change History</h1>
         <button
-          onClick={() => router.push(`/services/${serviceId}`)}
+          onClick={() => router.push(`/services/detail?id=${serviceId}`)}
           className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
         >
           Back to Service
@@ -57,7 +57,7 @@ export default function ChangeHistoryClient({ serviceId }: { serviceId: string }
           title="No changes detected"
           message="This service hasn't had any changes detected yet."
           actionLabel="Back to Service"
-          onAction={() => router.push(`/services/${serviceId}`)}
+          onAction={() => router.push(`/services/detail?id=${serviceId}`)}
         />
       ) : (
         <ChangeHistory changes={changes} serviceId={serviceId} />

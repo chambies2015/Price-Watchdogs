@@ -83,7 +83,7 @@ export default function ServiceDetail({ service, recentChanges, recentSnapshots 
             {recentChanges.slice(0, 5).map((change) => (
               <Link
                 key={change.id}
-                href={`/services/${service.id}/changes/${change.id}`}
+                href={`/services/change-detail?id=${service.id}&changeId=${change.id}`}
                 className="block rounded-md border border-zinc-200 p-3 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
               >
                 <div className="flex items-center justify-between">

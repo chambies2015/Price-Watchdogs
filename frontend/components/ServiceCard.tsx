@@ -53,7 +53,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
   const isStale = service.last_checked_at ? (Date.now() - new Date(service.last_checked_at).getTime()) > 7 * 24 * 60 * 60 * 1000 : true;
   
   return (
-    <Link href={`/services/${service.id}`}>
+    <Link href={`/services/detail?id=${service.id}`}>
       <div className="rounded-lg border border-zinc-200 bg-white p-6 transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900">
         <div className="flex items-start justify-between">
           <div className="flex-1">

@@ -205,7 +205,7 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Change History</h2>
               <Link
-                href={`/services/${serviceId}/changes`}
+                href={`/services/changes?id=${serviceId}`}
                 className="text-sm text-blue-600 hover:underline dark:text-blue-400"
               >
                 View All
@@ -220,7 +220,7 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
                 {recentChanges.map((change) => (
                   <Link
                     key={change.id}
-                    href={`/services/${serviceId}/changes/${change.id}`}
+                    href={`/services/change-detail?id=${serviceId}&changeId=${change.id}`}
                     className="block rounded-md border border-zinc-200 p-4 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                   >
                     <div className="flex items-center justify-between">

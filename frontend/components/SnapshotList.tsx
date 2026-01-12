@@ -53,7 +53,7 @@ export default function SnapshotList({ snapshots, serviceId }: SnapshotListProps
             </div>
             {index > 0 && (
               <Link
-                href={`/services/${serviceId}/changes?compare=${snapshots[index - 1].id}&with=${snapshot.id}`}
+                href={`/services/changes?id=${serviceId}&compare=${snapshots[index - 1].id}&with=${snapshot.id}`}
                 className="rounded-md border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
               >
                 Compare
