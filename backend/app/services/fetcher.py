@@ -2,6 +2,7 @@ import httpx
 from typing import Optional
 import logging
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,20 @@ async def fetch_page(url: str, timeout: int = 30) -> str:
             )
             page = await context.new_page()
             
-            await page.goto(url, wait_until='networkidle', timeout=timeout * 1000)
+            await page.goto(url, wait_until='domcontentloaded', timeout=timeout * 1000)
+            
+            await page.wait_for_timeout(3000)
+            
+            try:
+                await page.wait_for_function(
+                    """() => {
+                        const text = document.body.innerText;
+                        return text.includes('$') || text.includes('€') || text.includes('£') || text.includes('¥');
+                    }""",
+                    timeout=5000
+                )
+            except:
+                logger.warning(f"No pricing symbols found on page {url}, continuing anyway")
             
             await page.wait_for_timeout(2000)
             
