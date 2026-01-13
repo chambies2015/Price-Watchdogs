@@ -19,102 +19,75 @@ async def _fetch_page_playwright(url: str) -> str:
     try:
         async with async_playwright() as p:
             logger.info("Launching Chromium...")
-            browser = await asyncio.wait_for(
-                p.chromium.launch(
-                    headless=True,
-                    args=[
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--disable-blink-features=AutomationControlled',
-                        '--disable-dev-shm-usage',
-                        '--disable-gpu',
-                        '--disable-software-rasterizer',
-                        '--disable-extensions',
-                        '--disable-background-networking',
-                        '--single-process',
-                    ]
-                ),
-                timeout=30
+            browser = await p.chromium.launch(
+                headless=True,
+                timeout=45000,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer',
+                    '--disable-extensions',
+                    '--disable-background-networking',
+                    '--single-process',
+                ]
             )
             logger.info("Browser launched successfully")
             
-            context = await asyncio.wait_for(
-                browser.new_context(
-                    user_agent=USER_AGENT,
-                    viewport={'width': 1920, 'height': 1080},
-                    locale='en-US',
-                    timezone_id='America/New_York',
-                    extra_http_headers={
-                        'Accept-Language': 'en-US,en;q=0.9',
-                    }
-                ),
-                timeout=10
+            context = await browser.new_context(
+                user_agent=USER_AGENT,
+                viewport={'width': 1920, 'height': 1080},
+                locale='en-US',
+                timezone_id='America/New_York',
+                extra_http_headers={
+                    'Accept-Language': 'en-US,en;q=0.9',
+                }
             )
             logger.info("Browser context created")
             
             try:
                 logger.info("Adding anti-bot detection scripts...")
-                await asyncio.wait_for(
-                    context.add_init_script(r"""
-                        Object.defineProperty(navigator, 'webdriver', {
-                            get: () => undefined
-                        });
-                        window.chrome = {
-                            runtime: {}
-                        };
-                        Object.defineProperty(navigator, 'plugins', {
-                            get: () => [1, 2, 3, 4, 5]
-                        });
-                    """),
-                    timeout=5
-                )
+                await context.add_init_script(r"""
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined
+                    });
+                    window.chrome = {
+                        runtime: {}
+                    };
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [1, 2, 3, 4, 5]
+                    });
+                """)
                 logger.info("Anti-bot scripts added")
-            except asyncio.TimeoutError:
-                logger.warning("Init script timeout, continuing...")
             except Exception as e:
                 logger.warning(f"Failed to add init script, continuing: {str(e)}")
             
             logger.info("Creating new page...")
-            page = await asyncio.wait_for(
-                context.new_page(),
-                timeout=10
-            )
+            page = await context.new_page()
             logger.info("Page created successfully")
             
             try:
                 logger.info(f"Navigating to {url}...")
+                await page.goto(url, wait_until='domcontentloaded', timeout=30000)
+                logger.info("Page loaded (domcontentloaded)")
                 
-                try:
-                    await page.goto(url, wait_until='networkidle', timeout=15000)
-                    logger.info("Page loaded (networkidle)")
-                except PlaywrightTimeoutError:
-                    logger.warning(f"Network idle timeout, trying load state...")
-                    try:
-                        await page.goto(url, wait_until='load', timeout=10000)
-                        logger.info("Page loaded (load state)")
-                    except:
-                        logger.warning(f"Load timeout, trying domcontentloaded...")
-                        await page.goto(url, wait_until='domcontentloaded', timeout=10000)
-                        logger.info("Page loaded (domcontentloaded)")
-                except Exception as e:
-                    logger.error(f"Failed to navigate to {url}: {str(e)}")
-                    raise
-                
-                await page.wait_for_timeout(3000)
-                logger.info(f"Initial wait complete")
+                logger.info("Waiting for JavaScript execution...")
+                await page.wait_for_timeout(5000)
                 
                 logger.info("Waiting for pricing content to appear...")
                 try:
                     await page.wait_for_selector(
-                        '[class*="pric"], [class*="plan"], [class*="tier"], [id*="pric"], [id*="plan"], [id*="tier"], [data-testid*="pric"], [data-testid*="plan"]',
-                        timeout=5000,
+                        '[class*="pric"], [class*="plan"], [class*="tier"], [id*="pric"], [id*="plan"], [id*="tier"]',
+                        timeout=8000,
                         state='attached'
                     )
                     logger.info("Pricing-related elements found")
+                    await page.wait_for_timeout(2000)
                 except:
-                    logger.warning("No pricing selectors found, continuing anyway...")
-                
-                await page.wait_for_timeout(2000)
+                    logger.warning("No pricing selectors found, waiting longer...")
+                    await page.wait_for_timeout(5000)
                 
                 logger.info(f"Scrolling page to trigger lazy-loaded content")
                 
@@ -122,22 +95,17 @@ async def _fetch_page_playwright(url: str) -> str:
                     initial_height = await page.evaluate('document.body.scrollHeight')
                     logger.info(f"Initial page height: {initial_height}px")
                     
-                    scroll_positions = [0, 0.25, 0.5, 0.75, 1.0]
-                    for i, pos in enumerate(scroll_positions):
-                        await page.evaluate(f'window.scrollTo({{top: document.body.scrollHeight * {pos}, behavior: "smooth"}})')
-                        await page.wait_for_timeout(1000)
-                        
-                        new_height = await page.evaluate('document.body.scrollHeight')
-                        if new_height > initial_height:
-                            logger.info(f"Page expanded to {new_height}px at scroll position {i+1}")
-                            initial_height = new_height
+                    await page.evaluate('window.scrollTo({top: document.body.scrollHeight / 2})')
+                    await page.wait_for_timeout(1500)
                     
-                    await page.evaluate('window.scrollTo({top: 0, behavior: "smooth"})')
-                    await page.wait_for_timeout(2000)
+                    await page.evaluate('window.scrollTo({top: document.body.scrollHeight})')
+                    await page.wait_for_timeout(1500)
+                    
+                    await page.evaluate('window.scrollTo({top: 0})')
+                    await page.wait_for_timeout(1500)
                     
                     final_height = await page.evaluate('document.body.scrollHeight')
                     logger.info(f"Final page height: {final_height}px")
-                    logger.info("Scrolling complete")
                 except Exception as e:
                     logger.warning(f"Scrolling failed, but continuing: {str(e)}")
                 
@@ -170,14 +138,8 @@ async def _fetch_page_playwright(url: str) -> str:
                 except Exception as e:
                     logger.warning(f"Error checking for prices on {url}: {str(e)}")
                 
-                logger.info("Waiting for final content stabilization...")
-                await page.wait_for_timeout(3000)
-                
-                try:
-                    await page.wait_for_load_state('networkidle', timeout=5000)
-                    logger.info("Network idle confirmed")
-                except:
-                    logger.warning("Network idle timeout, proceeding anyway...")
+                logger.info("Final wait before capturing content...")
+                await page.wait_for_timeout(2000)
                 
                 content = await page.content()
                 logger.info(f"✓ Captured HTML content: {len(content)} bytes")
@@ -208,7 +170,7 @@ async def _fetch_page_playwright(url: str) -> str:
         raise
 
 
-async def fetch_page(url: str, timeout: int = 60) -> str:
+async def fetch_page(url: str, timeout: int = 120) -> str:
     logger.info(f"Attempting to fetch page: {url}")
     
     try:

@@ -25,9 +25,7 @@ PRICING_SELECTORS = [
     '[data-testid*="pric"]',
     '[data-testid*="plan"]',
     '[data-testid*="tier"]',
-    'table:has-text("$")',
-    'table:has-text("€")',
-    'table:has-text("£")',
+    'table',
 ]
 
 NOISE_PATTERNS = [
