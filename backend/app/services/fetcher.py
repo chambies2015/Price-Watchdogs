@@ -25,20 +25,37 @@ async def fetch_page(url: str, timeout: int = 30) -> str:
             )
             page = await context.new_page()
             
-            await page.goto(url, wait_until='domcontentloaded', timeout=timeout * 1000)
+            await page.goto(url, wait_until='networkidle', timeout=timeout * 1000)
             
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(2000)
+            
+            logger.info(f"Scrolling page {url} to trigger lazy-loaded content")
+            for i in range(5):
+                scroll_pos = (i + 1) * 20
+                await page.evaluate(f'window.scrollTo(0, document.body.scrollHeight * {scroll_pos} / 100)')
+                await page.wait_for_timeout(800)
+            
+            await page.evaluate('window.scrollTo(0, 0)')
+            await page.wait_for_timeout(1500)
             
             try:
-                await page.wait_for_function(
-                    """() => {
-                        const text = document.body.innerText;
-                        return text.includes('$') || text.includes('€') || text.includes('£') || text.includes('¥');
-                    }""",
-                    timeout=5000
-                )
-            except:
-                logger.warning(f"No pricing symbols found on page {url}, continuing anyway")
+                price_info = await page.evaluate("""() => {
+                    const text = document.body.innerText;
+                    const pricePattern = /\$\d+|\€\d+|\£\d+|\¥\d+/g;
+                    const matches = text.match(pricePattern);
+                    return {
+                        found: matches && matches.length > 0,
+                        count: matches ? matches.length : 0,
+                        sample: matches ? matches.slice(0, 3).join(', ') : ''
+                    };
+                }""")
+                
+                if price_info['found']:
+                    logger.info(f"Found {price_info['count']} prices on {url}: {price_info['sample']}")
+                else:
+                    logger.warning(f"No pricing patterns found on page {url}")
+            except Exception as e:
+                logger.warning(f"Error checking for prices on {url}: {str(e)}")
             
             await page.wait_for_timeout(2000)
             
