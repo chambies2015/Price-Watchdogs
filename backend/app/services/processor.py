@@ -15,9 +15,19 @@ PRICING_SELECTORS = [
     '[class*="plan"]',
     '[class*="tier"]',
     '[class*="package"]',
+    '[class*="subscription"]',
+    '[class*="cost"]',
+    '[class*="amount"]',
     '[id*="pric"]',
     '[id*="plan"]',
     '[id*="tier"]',
+    '[id*="package"]',
+    '[data-testid*="pric"]',
+    '[data-testid*="plan"]',
+    '[data-testid*="tier"]',
+    'table:has-text("$")',
+    'table:has-text("€")',
+    'table:has-text("£")',
 ]
 
 NOISE_PATTERNS = [
@@ -72,11 +82,27 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
             logger.warning(f"Error with selector {selector}: {e}")
             continue
     
-    if not extracted_elements:
-        return soup.get_text()
+    if extracted_elements:
+        pricing_html = ' '.join(str(elem) for elem in extracted_elements)
+        if pricing_html:
+            return pricing_html
     
-    pricing_html = ' '.join(str(elem) for elem in extracted_elements)
-    return pricing_html if pricing_html else soup.get_text()
+    price_pattern = re.compile(r'\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+', re.IGNORECASE)
+    
+    all_elements = soup.find_all(['div', 'section', 'article', 'table', 'tr', 'td', 'p', 'span', 'li'])
+    pricing_elements = []
+    
+    for elem in all_elements:
+        text = elem.get_text()
+        if text and price_pattern.search(text):
+            pricing_elements.append(elem)
+    
+    if pricing_elements:
+        logger.info(f"Found {len(pricing_elements)} elements containing prices via pattern matching")
+        pricing_html = ' '.join(str(elem) for elem in pricing_elements)
+        return pricing_html
+    
+    return soup.get_text()
 
 
 def normalize_text(text: str) -> str:

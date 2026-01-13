@@ -85,38 +85,58 @@ async def _fetch_page_playwright(url: str) -> str:
                 logger.info(f"Navigating to {url}...")
                 
                 try:
-                    await page.goto(url, wait_until='domcontentloaded', timeout=10000)
-                    logger.info("Page loaded (domcontentloaded)")
+                    await page.goto(url, wait_until='networkidle', timeout=15000)
+                    logger.info("Page loaded (networkidle)")
                 except PlaywrightTimeoutError:
-                    logger.warning(f"Page load timed out after 10s, trying to get content anyway...")
+                    logger.warning(f"Network idle timeout, trying load state...")
                     try:
-                        content = await page.content()
-                        if len(content) > 100:
-                            logger.info(f"Got partial content: {len(content)} bytes")
-                            return content
+                        await page.goto(url, wait_until='load', timeout=10000)
+                        logger.info("Page loaded (load state)")
                     except:
-                        pass
-                    raise
+                        logger.warning(f"Load timeout, trying domcontentloaded...")
+                        await page.goto(url, wait_until='domcontentloaded', timeout=10000)
+                        logger.info("Page loaded (domcontentloaded)")
                 except Exception as e:
                     logger.error(f"Failed to navigate to {url}: {str(e)}")
                     raise
                 
-                await page.wait_for_timeout(2000)
+                await page.wait_for_timeout(3000)
                 logger.info(f"Initial wait complete")
+                
+                logger.info("Waiting for pricing content to appear...")
+                try:
+                    await page.wait_for_selector(
+                        '[class*="pric"], [class*="plan"], [class*="tier"], [id*="pric"], [id*="plan"], [id*="tier"], [data-testid*="pric"], [data-testid*="plan"]',
+                        timeout=5000,
+                        state='attached'
+                    )
+                    logger.info("Pricing-related elements found")
+                except:
+                    logger.warning("No pricing selectors found, continuing anyway...")
+                
+                await page.wait_for_timeout(2000)
                 
                 logger.info(f"Scrolling page to trigger lazy-loaded content")
                 
                 try:
-                    total_height = await page.evaluate('document.body.scrollHeight')
-                    logger.info(f"Page height: {total_height}px")
+                    initial_height = await page.evaluate('document.body.scrollHeight')
+                    logger.info(f"Initial page height: {initial_height}px")
                     
-                    for i in range(4):
-                        scroll_pos = (i + 1) * 25
-                        await page.evaluate(f'window.scrollTo({{top: document.body.scrollHeight * {scroll_pos} / 100}})')
-                        await page.wait_for_timeout(500)
+                    scroll_positions = [0, 0.25, 0.5, 0.75, 1.0]
+                    for i, pos in enumerate(scroll_positions):
+                        await page.evaluate(f'window.scrollTo({{top: document.body.scrollHeight * {pos}, behavior: "smooth"}})')
+                        await page.wait_for_timeout(1000)
+                        
+                        new_height = await page.evaluate('document.body.scrollHeight')
+                        if new_height > initial_height:
+                            logger.info(f"Page expanded to {new_height}px at scroll position {i+1}")
+                            initial_height = new_height
                     
-                    await page.evaluate('window.scrollTo({top: 0})')
-                    await page.wait_for_timeout(1000)
+                    await page.evaluate('window.scrollTo({top: 0, behavior: "smooth"})')
+                    await page.wait_for_timeout(2000)
+                    
+                    final_height = await page.evaluate('document.body.scrollHeight')
+                    logger.info(f"Final page height: {final_height}px")
                     logger.info("Scrolling complete")
                 except Exception as e:
                     logger.warning(f"Scrolling failed, but continuing: {str(e)}")
@@ -150,7 +170,14 @@ async def _fetch_page_playwright(url: str) -> str:
                 except Exception as e:
                     logger.warning(f"Error checking for prices on {url}: {str(e)}")
                 
-                await page.wait_for_timeout(2000)
+                logger.info("Waiting for final content stabilization...")
+                await page.wait_for_timeout(3000)
+                
+                try:
+                    await page.wait_for_load_state('networkidle', timeout=5000)
+                    logger.info("Network idle confirmed")
+                except:
+                    logger.warning("Network idle timeout, proceeding anyway...")
                 
                 content = await page.content()
                 logger.info(f"✓ Captured HTML content: {len(content)} bytes")
