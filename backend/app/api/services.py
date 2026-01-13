@@ -29,19 +29,35 @@ __all__ = ["router", "dashboard_router"]
 async def create_initial_snapshot_background(service_id: UUID):
     from app.database import AsyncSessionLocal
     from app.services.snapshot_service import create_snapshot
+    from app.services.diff_service import process_new_snapshot
+    import traceback
     
     try:
+        logger.info(f"Background task started for service {service_id}")
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Service).where(Service.id == service_id)
             )
             service = result.scalar_one_or_none()
-            if service:
-                logger.info(f"Creating initial snapshot for service {service_id} in background")
-                await create_snapshot(db, service)
-                logger.info(f"Initial snapshot created successfully for service {service_id}")
+            
+            if not service:
+                logger.error(f"Service {service_id} not found in background task")
+                return
+            
+            logger.info(f"Creating initial snapshot for service {service_id} in background")
+            snapshot = await create_snapshot(db, service)
+            logger.info(f"Snapshot {snapshot.id} created, processing changes...")
+            
+            change_event = await process_new_snapshot(db, snapshot)
+            if change_event:
+                logger.info(f"Change event {change_event.id} created for service {service_id}")
+            else:
+                logger.info(f"No changes detected for service {service_id} (initial snapshot)")
+            
+            logger.info(f"Initial snapshot completed successfully for service {service_id}")
     except Exception as e:
         logger.error(f"Failed to create initial snapshot for service {service_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
 
 
 @router.post("", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED)
