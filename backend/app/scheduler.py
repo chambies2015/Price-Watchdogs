@@ -9,6 +9,7 @@ import logging
 import asyncio
 from typing import Dict, List, Any
 from uuid import UUID
+import httpx
 from app.database import AsyncSessionLocal
 from app.models.service import Service, CheckFrequency
 from app.models.alert import Alert
@@ -32,6 +33,7 @@ This module manages all background jobs using APScheduler:
 - fetch_service_pages: Runs hourly to fetch and snapshot service pages
 - dispatch_pending_alerts: Runs every 5 minutes to send pending email alerts
 - cleanup_snapshots: Runs weekly (Sunday 2 AM) to clean up old snapshots
+- keep_alive: Runs every 59 seconds to prevent Render free tier from sleeping
 
 All jobs are automatically started when the FastAPI application starts.
 Job metrics are tracked in the job_metrics dictionary for monitoring.
@@ -353,6 +355,18 @@ async def cleanup_snapshots():
         job_metrics[job_id].append(metrics)
 
 
+async def keep_alive():
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get("http://localhost:8000/health")
+            if response.status_code == 200:
+                logger.debug("Keep-alive ping successful")
+            else:
+                logger.warning(f"Keep-alive ping returned status {response.status_code}")
+    except Exception as e:
+        logger.debug(f"Keep-alive ping failed (this is normal during startup): {str(e)}")
+
+
 def start_scheduler():
     scheduler.add_job(
         fetch_service_pages,
@@ -378,8 +392,16 @@ def start_scheduler():
         replace_existing=True
     )
     
+    scheduler.add_job(
+        keep_alive,
+        trigger=IntervalTrigger(seconds=59),
+        id='keep_alive',
+        name='Keep service alive (prevent Render sleep)',
+        replace_existing=True
+    )
+    
     scheduler.start()
-    logger.info("Scheduler started successfully")
+    logger.info("Scheduler started successfully with keep-alive job")
 
 
 def shutdown_scheduler():
