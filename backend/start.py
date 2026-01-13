@@ -6,13 +6,16 @@ import sys
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
-    print("Installing Playwright browsers...")
-    playwright_result = subprocess.run(
-        [sys.executable, "-m", "playwright", "install", "chromium"],
-        check=False
-    )
-    if playwright_result.returncode != 0:
-        print("Warning: Playwright browser install failed, but continuing...")
+    if not os.environ.get("DOCKER_BUILD"):
+        print("Installing Playwright browsers...")
+        playwright_result = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            check=False
+        )
+        if playwright_result.returncode != 0:
+            print("Warning: Playwright browser install failed, but continuing...")
+    else:
+        print("Skipping Playwright install (already done in Docker image)")
     
     print("Running database migrations...")
     result = subprocess.run(
