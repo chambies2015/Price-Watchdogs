@@ -34,7 +34,7 @@ async def fetch_page(url: str, timeout: int = 30) -> str:
                 }
             )
             
-            await context.add_init_script("""
+            await context.add_init_script(r"""
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined
                 });
@@ -70,7 +70,7 @@ async def fetch_page(url: str, timeout: int = 30) -> str:
             await page.wait_for_timeout(2000)
             
             try:
-                price_info = await page.evaluate("""() => {
+                price_info = await page.evaluate(r"""() => {
                     const text = document.body.innerText;
                     const pricePattern = /\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+/g;
                     const matches = text.match(pricePattern);
