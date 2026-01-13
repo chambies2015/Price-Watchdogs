@@ -56,11 +56,11 @@ export default function ServiceCard({ service }: ServiceCardProps) {
     <Link href={`/services/detail?id=${service.id}`}>
       <div className="rounded-lg border border-zinc-200 bg-white p-6 transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900">
         <div className="flex items-start justify-between">
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
               {service.name}
             </h3>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400 truncate">
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400 truncate overflow-hidden">
               {service.url}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">

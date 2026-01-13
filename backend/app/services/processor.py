@@ -104,55 +104,66 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
 
 
 def extract_structured_pricing(text: str) -> str:
-    lines = []
-    
     price_pattern = re.compile(r'\$(\d+(?:\.\d{2})?)|\€(\d+(?:\.\d{2})?)|\£(\d+(?:\.\d{2})?)|\¥(\d+)')
     
-    plan_keywords = ['plan', 'tier', 'package', 'subscription', 'standard', 'premium', 'basic', 'pro', 'plus', 'free', 'starter', 'business', 'enterprise', 'individual', 'family', 'student']
-    frequency_keywords = ['month', 'year', 'annual', 'week', 'day']
+    plan_keywords = r'\b(plan|tier|package|subscription|standard|premium|basic|essentials|pro|plus|free|starter|business|enterprise|individual|family|student|unlimited|limited|ads?|no ads?)\b'
+    frequency_keywords = r'\b(month|monthly|year|yearly|annual|annually|week|weekly|day|daily|/mo|/yr)\b'
     
-    sentences = re.split(r'[.!?]\s+|\n+', text)
+    price_matches = list(price_pattern.finditer(text))
+    if not price_matches:
+        return text[:500] if len(text) > 500 else text
     
-    found_prices = set()
+    structured_lines = []
+    seen_prices = set()
     
-    for sentence in sentences:
-        sentence = sentence.strip()
-        if not sentence:
+    for match in price_matches:
+        price = match.group(0)
+        if price in seen_prices:
             continue
         
-        price_matches = list(price_pattern.finditer(sentence))
-        if not price_matches:
-            continue
+        start = match.start()
+        end = match.end()
         
-        sentence_lower = sentence.lower()
+        context_start = max(0, start - 150)
+        context_end = min(len(text), end + 50)
+        context = text[context_start:context_end]
         
-        has_plan_keyword = any(keyword in sentence_lower for keyword in plan_keywords)
-        has_frequency = any(keyword in sentence_lower for keyword in frequency_keywords)
+        plan_match = re.search(plan_keywords, context, re.IGNORECASE)
+        freq_match = re.search(frequency_keywords, context, re.IGNORECASE)
         
-        if has_plan_keyword or has_frequency:
-            clean_sentence = re.sub(r'\s+', ' ', sentence).strip()
+        if plan_match or freq_match:
+            extract_start = max(0, start - 80)
+            extract_end = min(len(text), end + 20)
+            snippet = text[extract_start:extract_end].strip()
             
-            if len(clean_sentence) < 200:
-                price_key = ''.join([m.group(0) for m in price_matches])
-                if price_key not in found_prices:
-                    lines.append(clean_sentence)
-                    found_prices.add(price_key)
+            snippet = re.sub(r'\s+', ' ', snippet)
+            
+            words = snippet.split()
+            price_index = next((i for i, w in enumerate(words) if price in w), None)
+            
+            if price_index is not None:
+                start_idx = max(0, price_index - 8)
+                end_idx = min(len(words), price_index + 4)
+                relevant_words = words[start_idx:end_idx]
+                clean_snippet = ' '.join(relevant_words)
+                
+                if len(clean_snippet) < 150:
+                    structured_lines.append(clean_snippet)
+                    seen_prices.add(price)
     
-    if lines:
-        return '\n'.join(lines)
+    if structured_lines:
+        return '\n'.join(structured_lines)
     
-    prices = price_pattern.findall(text)
-    if prices:
-        unique_prices = []
-        seen = set()
-        for price_tuple in prices:
-            price = next((p for p in price_tuple if p), '')
-            if price and price not in seen:
-                unique_prices.append(f"${price}")
-                seen.add(price)
-        
-        if unique_prices:
-            return "Prices found: " + ", ".join(unique_prices)
+    unique_prices = []
+    seen = set()
+    for match in price_matches:
+        price = match.group(0)
+        if price not in seen:
+            unique_prices.append(price)
+            seen.add(price)
+    
+    if unique_prices:
+        return "Prices found: " + ", ".join(unique_prices)
     
     return text[:500] if len(text) > 500 else text
 
