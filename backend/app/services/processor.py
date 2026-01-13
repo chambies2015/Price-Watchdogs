@@ -103,6 +103,60 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
     return soup.get_text()
 
 
+def extract_structured_pricing(text: str) -> str:
+    lines = []
+    
+    price_pattern = re.compile(r'\$(\d+(?:\.\d{2})?)|\€(\d+(?:\.\d{2})?)|\£(\d+(?:\.\d{2})?)|\¥(\d+)')
+    
+    plan_keywords = ['plan', 'tier', 'package', 'subscription', 'standard', 'premium', 'basic', 'pro', 'plus', 'free', 'starter', 'business', 'enterprise', 'individual', 'family', 'student']
+    frequency_keywords = ['month', 'year', 'annual', 'week', 'day']
+    
+    sentences = re.split(r'[.!?]\s+|\n+', text)
+    
+    found_prices = set()
+    
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        
+        price_matches = list(price_pattern.finditer(sentence))
+        if not price_matches:
+            continue
+        
+        sentence_lower = sentence.lower()
+        
+        has_plan_keyword = any(keyword in sentence_lower for keyword in plan_keywords)
+        has_frequency = any(keyword in sentence_lower for keyword in frequency_keywords)
+        
+        if has_plan_keyword or has_frequency:
+            clean_sentence = re.sub(r'\s+', ' ', sentence).strip()
+            
+            if len(clean_sentence) < 200:
+                price_key = ''.join([m.group(0) for m in price_matches])
+                if price_key not in found_prices:
+                    lines.append(clean_sentence)
+                    found_prices.add(price_key)
+    
+    if lines:
+        return '\n'.join(lines)
+    
+    prices = price_pattern.findall(text)
+    if prices:
+        unique_prices = []
+        seen = set()
+        for price_tuple in prices:
+            price = next((p for p in price_tuple if p), '')
+            if price and price not in seen:
+                unique_prices.append(f"${price}")
+                seen.add(price)
+        
+        if unique_prices:
+            return "Prices found: " + ", ".join(unique_prices)
+    
+    return text[:500] if len(text) > 500 else text
+
+
 def normalize_text(text: str) -> str:
     for pattern in NOISE_PATTERNS:
         text = re.sub(pattern, '', text, flags=re.IGNORECASE)
@@ -132,7 +186,10 @@ def process_html(html: str, custom_selector: str = None) -> Tuple[str, str, str]
     text_content = soup.get_text()
     logger.info(f"Text content: {len(text_content)} chars")
     
-    normalized = normalize_text(text_content)
+    structured_content = extract_structured_pricing(text_content)
+    logger.info(f"Structured pricing: {len(structured_content)} chars")
+    
+    normalized = normalize_text(structured_content)
     logger.info(f"Normalized content: {len(normalized)} chars")
     
     normalized_hash = generate_hash(normalized)
