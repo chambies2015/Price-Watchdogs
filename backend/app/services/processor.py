@@ -120,14 +120,20 @@ def generate_hash(content: str) -> str:
 def process_html(html: str, custom_selector: str = None) -> Tuple[str, str, str]:
     raw_hash = generate_hash(html)
     
-    sanitized = sanitize_html(html)
+    logger.info(f"Processing HTML: {len(html)} bytes")
     
-    pricing_content = extract_pricing_content(sanitized, custom_selector)
+    pricing_content = extract_pricing_content(html, custom_selector)
+    logger.info(f"Extracted pricing content: {len(pricing_content)} bytes")
     
-    soup = BeautifulSoup(pricing_content, 'lxml')
+    sanitized = sanitize_html(pricing_content)
+    logger.info(f"Sanitized content: {len(sanitized)} bytes")
+    
+    soup = BeautifulSoup(sanitized, 'lxml')
     text_content = soup.get_text()
+    logger.info(f"Text content: {len(text_content)} chars")
     
     normalized = normalize_text(text_content)
+    logger.info(f"Normalized content: {len(normalized)} chars")
     
     normalized_hash = generate_hash(normalized)
     
