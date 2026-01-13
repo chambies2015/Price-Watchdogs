@@ -6,6 +6,7 @@ from typing import AsyncGenerator, Generator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from httpx import AsyncClient
+from unittest.mock import AsyncMock, patch
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
@@ -125,4 +126,31 @@ async def auth_headers(db_session: AsyncSession) -> dict:
     
     token = create_access_token(data={"sub": str(user.id)})
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(autouse=True)
+def mock_fetch_page():
+    mock_html = """
+    <html>
+    <head><title>Test Pricing Page</title></head>
+    <body>
+        <h1>Pricing Plans</h1>
+        <div class="plan">
+            <h2>Basic Plan</h2>
+            <p class="price">$9.99/month</p>
+        </div>
+        <div class="plan">
+            <h2>Premium Plan</h2>
+            <p class="price">$19.99/month</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    async def mock_fetch(*args, **kwargs):
+        return mock_html
+    
+    with patch('app.services.fetcher.fetch_page', new=mock_fetch):
+        with patch('app.services.snapshot_service.fetch_page', new=mock_fetch):
+            yield
 
