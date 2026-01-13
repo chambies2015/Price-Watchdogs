@@ -12,9 +12,13 @@ class FetchError(Exception):
     pass
 
 
-async def fetch_page(url: str, timeout: int = 30) -> str:
+async def fetch_page(url: str, timeout: int = 60) -> str:
+    logger.info(f"Attempting to fetch page: {url}")
+    
     try:
+        logger.info("Launching Playwright browser...")
         async with async_playwright() as p:
+            logger.info("Launching Chromium...")
             browser = await p.chromium.launch(
                 headless=True,
                 args=[
@@ -22,8 +26,15 @@ async def fetch_page(url: str, timeout: int = 30) -> str:
                     '--disable-setuid-sandbox',
                     '--disable-blink-features=AutomationControlled',
                     '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer',
+                    '--disable-extensions',
+                    '--disable-background-networking',
+                    '--single-process',
                 ]
             )
+            logger.info("Browser launched successfully")
+            
             context = await browser.new_context(
                 user_agent=USER_AGENT,
                 viewport={'width': 1920, 'height': 1080},
@@ -33,6 +44,7 @@ async def fetch_page(url: str, timeout: int = 30) -> str:
                     'Accept-Language': 'en-US,en;q=0.9',
                 }
             )
+            logger.info("Browser context created")
             
             await context.add_init_script(r"""
                 Object.defineProperty(navigator, 'webdriver', {
@@ -47,27 +59,34 @@ async def fetch_page(url: str, timeout: int = 30) -> str:
             """)
             
             page = await context.new_page()
+            logger.info(f"Navigating to {url}...")
             
-            await page.goto(url, wait_until='networkidle', timeout=timeout * 1000)
+            try:
+                await page.goto(url, wait_until='domcontentloaded', timeout=15000)
+                logger.info("Page loaded (domcontentloaded)")
+            except Exception as e:
+                logger.error(f"Failed to navigate to {url}: {str(e)}")
+                raise
             
-            await page.wait_for_timeout(3000)
-            
-            logger.info(f"Scrolling page {url} to trigger lazy-loaded content")
-            
-            total_height = await page.evaluate('document.body.scrollHeight')
-            logger.info(f"Page height: {total_height}px")
-            
-            for i in range(8):
-                scroll_pos = (i + 1) * 12.5
-                await page.evaluate(f'window.scrollTo({{top: document.body.scrollHeight * {scroll_pos} / 100, behavior: "smooth"}})')
-                await page.wait_for_timeout(1000)
-                
-                if i == 3 or i == 6:
-                    await page.mouse.move(500, 500)
-                    await page.wait_for_timeout(500)
-            
-            await page.evaluate('window.scrollTo({top: 0, behavior: "smooth"})')
             await page.wait_for_timeout(2000)
+            logger.info(f"Initial wait complete")
+            
+            logger.info(f"Scrolling page to trigger lazy-loaded content")
+            
+            try:
+                total_height = await page.evaluate('document.body.scrollHeight')
+                logger.info(f"Page height: {total_height}px")
+                
+                for i in range(4):
+                    scroll_pos = (i + 1) * 25
+                    await page.evaluate(f'window.scrollTo({{top: document.body.scrollHeight * {scroll_pos} / 100}})')
+                    await page.wait_for_timeout(500)
+                
+                await page.evaluate('window.scrollTo({top: 0})')
+                await page.wait_for_timeout(1000)
+                logger.info("Scrolling complete")
+            except Exception as e:
+                logger.warning(f"Scrolling failed, but continuing: {str(e)}")
             
             try:
                 price_info = await page.evaluate(r"""() => {
@@ -98,20 +117,35 @@ async def fetch_page(url: str, timeout: int = 30) -> str:
             except Exception as e:
                 logger.warning(f"Error checking for prices on {url}: {str(e)}")
             
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(2000)
             
             content = await page.content()
-            logger.info(f"Captured HTML content length: {len(content)} bytes")
+            logger.info(f"✓ Captured HTML content: {len(content)} bytes")
             
             await browser.close()
             
             return content
             
-    except PlaywrightTimeoutError:
-        logger.error(f"Timeout fetching {url}")
-        raise FetchError(f"Request timeout after {timeout} seconds")
+    except PlaywrightTimeoutError as e:
+        logger.error(f"Playwright timeout for {url}: {str(e)}")
+        logger.info("Attempting fallback to simple HTTP fetch...")
+        return await fallback_fetch(url, timeout)
         
     except Exception as e:
-        logger.error(f"Error fetching {url}: {str(e)}")
-        raise FetchError(f"Failed to fetch page: {str(e)}")
+        logger.error(f"Playwright error for {url}: {type(e).__name__}: {str(e)}")
+        logger.info("Attempting fallback to simple HTTP fetch...")
+        return await fallback_fetch(url, timeout)
+
+
+async def fallback_fetch(url: str, timeout: int = 30) -> str:
+    logger.info(f"Using fallback HTTP fetcher for {url}")
+    try:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(url, headers={'User-Agent': USER_AGENT})
+            response.raise_for_status()
+            logger.info(f"✓ Fallback fetch successful: {len(response.text)} bytes")
+            return response.text
+    except Exception as e:
+        logger.error(f"Fallback fetch also failed for {url}: {str(e)}")
+        raise FetchError(f"Both Playwright and fallback fetch failed: {str(e)}")
 

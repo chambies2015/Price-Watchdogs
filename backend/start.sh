@@ -5,7 +5,6 @@ cd "$(dirname "$0")"
 
 echo "Installing Playwright browsers..."
 python -m playwright install chromium
-python -m playwright install-deps chromium
 
 echo "Running database migrations..."
 python -m alembic upgrade head
