@@ -62,8 +62,19 @@ async def fetch_page(url: str, timeout: int = 60) -> str:
             logger.info(f"Navigating to {url}...")
             
             try:
-                await page.goto(url, wait_until='domcontentloaded', timeout=15000)
+                await page.goto(url, wait_until='domcontentloaded', timeout=10000)
                 logger.info("Page loaded (domcontentloaded)")
+            except PlaywrightTimeoutError:
+                logger.warning(f"Page load timed out after 10s, trying to get content anyway...")
+                try:
+                    content = await page.content()
+                    if len(content) > 100:
+                        logger.info(f"Got partial content: {len(content)} bytes")
+                        await browser.close()
+                        return content
+                except:
+                    pass
+                raise
             except Exception as e:
                 logger.error(f"Failed to navigate to {url}: {str(e)}")
                 raise

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
@@ -16,6 +16,9 @@ from app.services.subscription_service import (
 )
 import uuid
 import bleach
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/services", tags=["services"])
 dashboard_router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -23,9 +26,28 @@ dashboard_router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 __all__ = ["router", "dashboard_router"]
 
 
+async def create_initial_snapshot_background(service_id: UUID):
+    from app.database import AsyncSessionLocal
+    from app.services.snapshot_service import create_snapshot
+    
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Service).where(Service.id == service_id)
+            )
+            service = result.scalar_one_or_none()
+            if service:
+                logger.info(f"Creating initial snapshot for service {service_id} in background")
+                await create_snapshot(db, service)
+                logger.info(f"Initial snapshot created successfully for service {service_id}")
+    except Exception as e:
+        logger.error(f"Failed to create initial snapshot for service {service_id}: {str(e)}")
+
+
 @router.post("", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED)
 async def create_service(
     service_data: ServiceCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -53,11 +75,8 @@ async def create_service(
     await db.commit()
     await db.refresh(new_service)
     
-    try:
-        from app.services.snapshot_service import create_snapshot
-        await create_snapshot(db, new_service)
-    except Exception as e:
-        pass
+    background_tasks.add_task(create_initial_snapshot_background, new_service.id)
+    logger.info(f"Service {new_service.id} created, initial snapshot queued")
     
     return new_service
 
