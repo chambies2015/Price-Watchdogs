@@ -130,13 +130,14 @@ def extract_structured_pricing(text: str) -> str:
         if not price:
             continue
         
-        full_match = re.sub(r'\s+', ' ', full_match)
-        full_match = re.sub(r'\s*:\s*', ' ', full_match)
+        full_match = re.sub(r'\s+', ' ', full_match).strip()
+        full_match = re.sub(r'\s*:\s*', ' - ', full_match)
         
-        full_match = re.sub(r'(\d+p)', r'\1 ', full_match)
-        full_match = re.sub(r'(Monthly|Annual|Yearly)', r' \1 ', full_match)
-        full_match = re.sub(r'(price)', r' \1 ', full_match)
-        full_match = re.sub(r'\s+', ' ', full_match)
+        full_match = re.sub(r'(\d+p|[248]K|HD|4K|UHD)', r'\1 ', full_match)
+        full_match = re.sub(r'(with|no)\s*(ads?)', r'\1 \2 ', full_match, flags=re.IGNORECASE)
+        full_match = re.sub(r'(Monthly|Annual|Yearly)', r' \1 ', full_match, flags=re.IGNORECASE)
+        full_match = re.sub(r'(price)', r' \1 ', full_match, flags=re.IGNORECASE)
+        full_match = re.sub(r'\s+', ' ', full_match).strip()
         
         if price not in pricing_info or len(full_match) > len(pricing_info[price]):
             pricing_info[price] = full_match
@@ -144,8 +145,8 @@ def extract_structured_pricing(text: str) -> str:
     if pricing_info:
         lines = []
         for price in sorted(pricing_info.keys(), key=lambda p: float(p.replace('$', '').replace('€', '').replace('£', '').replace('¥', ''))):
-            lines.append(pricing_info[price])
-        return '\n'.join(lines)
+            lines.append(f"• {pricing_info[price]}")
+        return '\n\n'.join(lines)
     
     price_matches = price_pattern.findall(text)
     if price_matches:
