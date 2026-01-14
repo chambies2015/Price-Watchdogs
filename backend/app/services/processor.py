@@ -133,6 +133,11 @@ def extract_structured_pricing(text: str) -> str:
         full_match = re.sub(r'\s+', ' ', full_match)
         full_match = re.sub(r'\s*:\s*', ' ', full_match)
         
+        full_match = re.sub(r'(\d+p)', r'\1 ', full_match)
+        full_match = re.sub(r'(Monthly|Annual|Yearly)', r' \1 ', full_match)
+        full_match = re.sub(r'(price)', r' \1 ', full_match)
+        full_match = re.sub(r'\s+', ' ', full_match)
+        
         if price not in pricing_info or len(full_match) > len(pricing_info[price]):
             pricing_info[price] = full_match
     
@@ -157,11 +162,17 @@ def extract_structured_pricing(text: str) -> str:
     return text[:500] if len(text) > 500 else text
 
 
-def normalize_text(text: str) -> str:
+def normalize_text(text: str, preserve_newlines: bool = False) -> str:
     for pattern in NOISE_PATTERNS:
         text = re.sub(pattern, '', text, flags=re.IGNORECASE)
     
-    text = re.sub(r'\s+', ' ', text)
+    if preserve_newlines:
+        lines = text.split('\n')
+        lines = [re.sub(r'[ \t]+', ' ', line.strip()) for line in lines]
+        text = '\n'.join([line for line in lines if line])
+    else:
+        text = re.sub(r'\s+', ' ', text)
+    
     text = text.strip()
     
     return text
@@ -189,7 +200,7 @@ def process_html(html: str, custom_selector: str = None) -> Tuple[str, str, str]
     structured_content = extract_structured_pricing(text_content)
     logger.info(f"Structured pricing: {len(structured_content)} chars")
     
-    normalized = normalize_text(structured_content)
+    normalized = normalize_text(structured_content, preserve_newlines=True)
     logger.info(f"Normalized content: {len(normalized)} chars")
     
     normalized_hash = generate_hash(normalized)
