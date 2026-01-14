@@ -108,57 +108,65 @@ def extract_structured_pricing(text: str) -> str:
     
     text = re.sub(r'\s+', ' ', text)
     
-    plan_pattern = re.compile(
-        r'((?:Standard|Premium|Basic|Pro|Plus|Free|Starter|Business|Enterprise|Individual|Family|Student|Essential|Ultimate|Unlimited|Limited|Advanced)[\w\s\-+&]*?)?'
-        r'(?:with\s+ads?|no\s+ads?|ad-?free|ad-?supported)?[\s\-]*'
-        r'(?:\d{3,4}p|[248]K|HD|4K|UHD)?[\s\-]*'
-        r'(?:Monthly|Annual|Yearly)?[\s\-]*'
-        r'(?:price|plan|tier|subscription)?[\s:]*'
-        r'(\$\d+(?:\.\d{2})?)'
-        r'(?:/mo|/month|/yr|/year)?',
-        re.IGNORECASE
-    )
-    
-    matches = plan_pattern.finditer(text)
+    price_matches = list(price_pattern.finditer(text))
+    if not price_matches:
+        return text[:500] if len(text) > 500 else text
     
     pricing_info = {}
     
-    for match in matches:
-        full_match = match.group(0).strip()
-        price = match.group(2)
-        
-        if not price:
+    for match in price_matches:
+        price = match.group(0)
+        if price in pricing_info:
             continue
         
-        full_match = re.sub(r'\s+', ' ', full_match).strip()
-        full_match = re.sub(r'\s*:\s*', ' - ', full_match)
+        pos = match.start()
         
-        full_match = re.sub(r'(\d+p|[248]K|HD|4K|UHD)', r'\1 ', full_match)
-        full_match = re.sub(r'(with|no)\s*(ads?)', r'\1 \2 ', full_match, flags=re.IGNORECASE)
-        full_match = re.sub(r'(Monthly|Annual|Yearly)', r' \1 ', full_match, flags=re.IGNORECASE)
-        full_match = re.sub(r'(price)', r' \1 ', full_match, flags=re.IGNORECASE)
-        full_match = re.sub(r'\s+', ' ', full_match).strip()
+        before_start = max(0, pos - 200)
+        before_text = text[before_start:pos]
         
-        if price not in pricing_info or len(full_match) > len(pricing_info[price]):
-            pricing_info[price] = full_match
+        after_end = min(len(text), match.end() + 30)
+        after_text = text[match.end():after_end]
+        
+        context = before_text + price + after_text
+        
+        lines = context.split('.')
+        for line in lines:
+            if price in line:
+                line = line.strip()
+                
+                words = line.split()
+                price_idx = next((i for i, w in enumerate(words) if price in w), -1)
+                
+                if price_idx >= 0:
+                    start_idx = max(0, price_idx - 15)
+                    end_idx = min(len(words), price_idx + 5)
+                    snippet = ' '.join(words[start_idx:end_idx])
+                    
+                    snippet = re.sub(r'\s+', ' ', snippet).strip()
+                    
+                    if len(snippet) > 10 and len(snippet) < 200:
+                        pricing_info[price] = snippet
+                        break
     
     if pricing_info:
         lines = []
         for price in sorted(pricing_info.keys(), key=lambda p: float(p.replace('$', '').replace('€', '').replace('£', '').replace('¥', ''))):
-            lines.append(f"• {pricing_info[price]}")
+            line = pricing_info[price]
+            line = re.sub(r'(Starting at|starting at)', r'', line, flags=re.IGNORECASE).strip()
+            line = re.sub(r'\s+', ' ', line)
+            lines.append(f"• {line}")
         return '\n\n'.join(lines)
     
-    price_matches = price_pattern.findall(text)
-    if price_matches:
-        unique_prices = []
-        seen = set()
-        for price in price_matches:
-            if price not in seen:
-                unique_prices.append(price)
-                seen.add(price)
-        
-        if unique_prices:
-            return "Prices found: " + ", ".join(unique_prices)
+    unique_prices = []
+    seen = set()
+    for match in price_matches:
+        price = match.group(0)
+        if price not in seen:
+            unique_prices.append(price)
+            seen.add(price)
+    
+    if unique_prices:
+        return "Prices found: " + ", ".join(unique_prices)
     
     return text[:500] if len(text) > 500 else text
 
