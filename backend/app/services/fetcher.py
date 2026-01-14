@@ -80,20 +80,20 @@ async def _fetch_page_playwright(url: str) -> str:
             raise
         
         logger.info("Waiting for JavaScript execution...")
-        await page.wait_for_timeout(3000)
+        await page.wait_for_timeout(5000)
         
         logger.info("Waiting for pricing content to appear...")
         try:
             await page.wait_for_selector(
-                '[class*="pric"], [class*="plan"], [class*="tier"], [id*="pric"], [id*="plan"], [id*="tier"]',
-                timeout=5000,
+                '[class*="pric"], [class*="plan"], [class*="tier"], [class*="choic"], [class*="bundle"], [id*="pric"], [id*="plan"], [id*="tier"]',
+                timeout=10000,
                 state='attached'
             )
             logger.info("Pricing-related elements found")
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(2000)
         except:
-            logger.warning("No pricing selectors found, waiting longer...")
-            await page.wait_for_timeout(3000)
+            logger.warning("No pricing selectors found, waiting for React render...")
+            await page.wait_for_timeout(8000)
         
         logger.info("Scrolling page to trigger lazy-loaded content")
         try:
@@ -142,7 +142,7 @@ async def _fetch_page_playwright(url: str) -> str:
         return content
 
 
-async def fetch_page(url: str, timeout: int = 90) -> str:
+async def fetch_page(url: str, timeout: int = 120) -> str:
     logger.info(f"Attempting to fetch page: {url}")
     
     try:
