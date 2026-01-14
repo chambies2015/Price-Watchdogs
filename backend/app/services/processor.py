@@ -121,40 +121,43 @@ def extract_structured_pricing(text: str) -> str:
         
         pos = match.start()
         
-        before_start = max(0, pos - 200)
+        before_start = max(0, pos - 250)
         before_text = text[before_start:pos]
         
-        after_end = min(len(text), match.end() + 30)
+        after_end = min(len(text), match.end() + 50)
         after_text = text[match.end():after_end]
         
-        context = before_text + price + after_text
+        words_before = before_text.split()
+        words_after = after_text.split()
         
-        lines = context.split('.')
-        for line in lines:
-            if price in line:
-                line = line.strip()
-                
-                words = line.split()
-                price_idx = next((i for i, w in enumerate(words) if price in w), -1)
-                
-                if price_idx >= 0:
-                    start_idx = max(0, price_idx - 15)
-                    end_idx = min(len(words), price_idx + 5)
-                    snippet = ' '.join(words[start_idx:end_idx])
-                    
-                    snippet = re.sub(r'\s+', ' ', snippet).strip()
-                    
-                    if len(snippet) > 10 and len(snippet) < 200:
-                        pricing_info[price] = snippet
-                        break
+        start_idx = max(0, len(words_before) - 20)
+        before_snippet = ' '.join(words_before[start_idx:])
+        
+        end_idx = min(len(words_after), 8)
+        after_snippet = ' '.join(words_after[:end_idx])
+        
+        full_snippet = f"{before_snippet} {price} {after_snippet}".strip()
+        
+        full_snippet = re.sub(r'(Starting at|starting at)\s*', '', full_snippet, flags=re.IGNORECASE)
+        full_snippet = re.sub(r'\s+', ' ', full_snippet).strip()
+        
+        service_names = re.findall(r'\b(Disney\+|Hulu|ESPN|HBO|Max|Netflix|Prime|YouTube|Paramount|Peacock|Apple|Amazon)\b', full_snippet, re.IGNORECASE)
+        
+        bundle_pattern = re.search(r'([\w\+,\s]+Bundle|[\w\+,\s]+plan|[\w\+,\s]+tier)', full_snippet, re.IGNORECASE)
+        
+        has_context = service_names or bundle_pattern
+        
+        if has_context and len(full_snippet) > 5:
+            if len(full_snippet) > 150:
+                full_snippet = full_snippet[-150:]
+                full_snippet = full_snippet[full_snippet.find(' ')+1:]
+            
+            pricing_info[price] = full_snippet
     
     if pricing_info:
         lines = []
         for price in sorted(pricing_info.keys(), key=lambda p: float(p.replace('$', '').replace('€', '').replace('£', '').replace('¥', ''))):
-            line = pricing_info[price]
-            line = re.sub(r'(Starting at|starting at)', r'', line, flags=re.IGNORECASE).strip()
-            line = re.sub(r'\s+', ' ', line)
-            lines.append(f"• {line}")
+            lines.append(f"• {pricing_info[price]}")
         return '\n\n'.join(lines)
     
     unique_prices = []
