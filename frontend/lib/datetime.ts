@@ -10,18 +10,46 @@ export function parseApiDate(dateString: string): Date {
 
 export function formatDateTime(dateString: string): string {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'short',
-    timeStyle: 'medium',
-    timeZone: tz,
-    timeZoneName: 'short',
-  }).format(parseApiDate(dateString))
+  const d = parseApiDate(dateString)
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: tz,
+      timeZoneName: 'short',
+    }).format(d)
+  } catch {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: tz,
+      }).format(d)
+    } catch {
+      return d.toLocaleString()
+    }
+  }
 }
 
 export function formatDate(dateString: string): string {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeZone: tz,
-  }).format(parseApiDate(dateString))
+  const d = parseApiDate(dateString)
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      timeZone: tz,
+    }).format(d)
+  } catch {
+    return d.toLocaleDateString()
+  }
 }
