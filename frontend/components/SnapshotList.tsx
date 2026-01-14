@@ -3,15 +3,11 @@
 import { Snapshot } from '@/lib/api';
 import Link from 'next/link';
 import { useState } from 'react';
+import { formatDateTime } from '@/lib/datetime';
 
 interface SnapshotListProps {
   snapshots: Snapshot[];
   serviceId: string;
-}
-
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleString();
 }
 
 function truncateContent(content: string, maxLength: number = 100): string {
@@ -45,7 +41,7 @@ export default function SnapshotList({ snapshots, serviceId }: SnapshotListProps
                     Snapshot #{snapshots.length - index}
                   </span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {formatDate(snapshot.created_at)}
+                    {formatDateTime(snapshot.created_at)}
                   </span>
                 </div>
                 <p className="mt-2 font-mono text-xs text-zinc-600 dark:text-zinc-400">
@@ -85,7 +81,7 @@ export default function SnapshotList({ snapshots, serviceId }: SnapshotListProps
                   Snapshot Content
                 </h3>
                 <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  {formatDate(viewingSnapshot.created_at)}
+                  {formatDateTime(viewingSnapshot.created_at)}
                 </p>
               </div>
               <button

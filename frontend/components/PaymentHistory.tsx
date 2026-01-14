@@ -1,6 +1,7 @@
 'use client';
 
 import { Payment } from '@/lib/api';
+import { formatDate } from '@/lib/datetime';
 
 interface PaymentHistoryProps {
   payments: Payment[];
@@ -50,7 +51,7 @@ export default function PaymentHistory({ payments }: PaymentHistoryProps) {
             {payments.map((payment) => (
               <tr key={payment.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                  {new Date(payment.created_at).toLocaleDateString()}
+                  {formatDate(payment.created_at)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                   {formatAmount(payment.amount, payment.currency)}

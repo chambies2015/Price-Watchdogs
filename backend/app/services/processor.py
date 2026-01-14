@@ -106,8 +106,28 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
     
     if pricing_elements:
         logger.info(f"Found {len(pricing_elements)} elements containing prices via pattern matching")
-        currency_html = ' '.join(str(elem) for elem in pricing_elements)
-        currency_text = BeautifulSoup(currency_html, 'lxml').get_text(' ', strip=True) if currency_html else ''
+        candidates = []
+        seen = set()
+        for elem in pricing_elements:
+            cur = elem
+            for _ in range(4):
+                if cur is None or getattr(cur, "name", None) is None:
+                    break
+                key = id(cur)
+                if key not in seen:
+                    seen.add(key)
+                    candidates.append(cur)
+                cur = cur.parent
+
+        def score(node) -> tuple[int, int, int]:
+            t = node.get_text(' ', strip=True) if node else ''
+            prices = set(price_pattern.findall(t))
+            hints = len(plan_hint_pattern.findall(t))
+            return (len(prices), hints, len(t))
+
+        best_node = max(candidates, key=score)
+        currency_html = str(best_node)
+        currency_text = best_node.get_text(' ', strip=True)
 
         selector_prices = set(price_pattern.findall(selector_text)) if selector_text else set()
         currency_prices = set(price_pattern.findall(currency_text)) if currency_text else set()
@@ -190,6 +210,8 @@ def extract_structured_pricing(text: str) -> str:
         plan = re.sub(r'^(Netflix|Disney\+|Hulu|ESPN)\s+', '', plan, flags=re.IGNORECASE).strip()
         if re.search(r'\byoutube\s+tv\s+base\s+plan\b', plan, re.IGNORECASE):
             plan = 'YouTube TV Base Plan'
+        if plan.lower() in ('select', 'select plan'):
+            return ''
         if any(frag in plan.lower() for frag in bad_plan_fragments):
             return ''
         if re.search(r'\bincluded with any\b.*\bplan\b', plan, re.IGNORECASE):

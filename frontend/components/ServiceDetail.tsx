@@ -3,6 +3,7 @@
 import { Service, ChangeEvent, Snapshot } from '@/lib/api';
 import Link from 'next/link';
 import SnapshotList from './SnapshotList';
+import { formatDate, formatDateTime } from '@/lib/datetime';
 
 interface ServiceDetailProps {
   service: Service;
@@ -61,7 +62,7 @@ export default function ServiceDetail({ service, recentChanges, recentSnapshots 
             <div>
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Last Checked:</span>
               <span className="ml-2 text-sm text-zinc-600 dark:text-zinc-400">
-                {new Date(service.last_checked_at).toLocaleString()}
+                {formatDateTime(service.last_checked_at)}
               </span>
             </div>
           )}
@@ -91,7 +92,7 @@ export default function ServiceDetail({ service, recentChanges, recentSnapshots 
                     {change.summary}
                   </span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {new Date(change.created_at).toLocaleDateString()}
+                    {formatDate(change.created_at)}
                   </span>
                 </div>
               </Link>

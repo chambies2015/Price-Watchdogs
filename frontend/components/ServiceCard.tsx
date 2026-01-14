@@ -2,6 +2,7 @@
 
 import { ServiceSummary, ChangeType } from '@/lib/api';
 import Link from 'next/link';
+import { parseApiDate, formatDate } from '@/lib/datetime';
 
 interface ServiceCardProps {
   service: ServiceSummary;
@@ -10,7 +11,7 @@ interface ServiceCardProps {
 function formatRelativeTime(dateString: string | null): string {
   if (!dateString) return 'Never';
   
-  const date = new Date(dateString);
+  const date = parseApiDate(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -21,7 +22,7 @@ function formatRelativeTime(dateString: string | null): string {
   if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
   if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
   if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-  return date.toLocaleDateString();
+  return formatDate(dateString);
 }
 
 function getChangeTypeBadgeColor(changeType: ChangeType): string {
@@ -50,7 +51,7 @@ function getChangeTypeLabel(changeType: ChangeType): string {
 
 export default function ServiceCard({ service }: ServiceCardProps) {
   const statusColor = service.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400';
-  const isStale = service.last_checked_at ? (Date.now() - new Date(service.last_checked_at).getTime()) > 7 * 24 * 60 * 60 * 1000 : true;
+  const isStale = service.last_checked_at ? (Date.now() - parseApiDate(service.last_checked_at).getTime()) > 7 * 24 * 60 * 60 * 1000 : true;
   
   return (
     <Link href={`/services/detail?id=${service.id}`}>

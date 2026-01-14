@@ -9,6 +9,7 @@ import ServiceForm from '@/components/ServiceForm';
 import ServiceDetail from '@/components/ServiceDetail';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
+import { formatDateTime } from '@/lib/datetime';
 
 type Tab = 'overview' | 'settings' | 'history' | 'snapshots';
 
@@ -267,7 +268,7 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
                       <div>
                         <p className="font-medium text-zinc-900 dark:text-zinc-50">{change.summary}</p>
                         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                          {new Date(change.created_at).toLocaleString()}
+                          {formatDateTime(change.created_at)}
                         </p>
                       </div>
                       <span className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -302,7 +303,7 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
                             Snapshot #{recentSnapshots.length - index}
                           </span>
                           <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {new Date(snapshot.created_at).toLocaleString()}
+                            {formatDateTime(snapshot.created_at)}
                           </span>
                         </div>
                         <p className="mt-2 font-mono text-xs text-zinc-600 dark:text-zinc-400">

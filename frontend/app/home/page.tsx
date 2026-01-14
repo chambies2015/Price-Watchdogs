@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { dashboardApi, ServiceSummary } from '@/lib/api';
 import { useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { formatDate } from '@/lib/datetime';
 
 export default function HomePage() {
   const { user, logout, loading: authLoading } = useAuth();
@@ -215,7 +216,7 @@ export default function HomePage() {
                   {service.last_change_event && (
                     <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-700">
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        Last change: {new Date(service.last_change_event.created_at).toLocaleDateString()}
+                        Last change: {formatDate(service.last_change_event.created_at)}
                       </p>
                     </div>
                   )}
