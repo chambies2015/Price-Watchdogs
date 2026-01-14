@@ -72,6 +72,7 @@ def sanitize_html(html: str) -> str:
 def extract_pricing_content(html: str, custom_selector: str = None) -> str:
     soup = BeautifulSoup(html, 'lxml')
     price_pattern = re.compile(r'\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+', re.IGNORECASE)
+    plan_hint_pattern = re.compile(r'\b(plan|tier|bundle|duo|trio|basic|standard|premium|mobile)\b', re.IGNORECASE)
     
     if custom_selector:
         selectors = [custom_selector]
@@ -88,11 +89,13 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
             logger.warning(f"Error with selector {selector}: {e}")
             continue
     
+    selector_html = ''
+    selector_text = ''
     if extracted_elements:
-        pricing_html = ' '.join(str(elem) for elem in extracted_elements)
-        if pricing_html and price_pattern.search(BeautifulSoup(pricing_html, 'lxml').get_text(' ', strip=True)):
-            return pricing_html
-    
+        selector_html = ' '.join(str(elem) for elem in extracted_elements)
+        if selector_html:
+            selector_text = BeautifulSoup(selector_html, 'lxml').get_text(' ', strip=True)
+
     all_elements = soup.find_all(['div', 'section', 'article', 'table', 'tr', 'td', 'p', 'span', 'li'])
     pricing_elements = []
     
@@ -103,8 +106,24 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
     
     if pricing_elements:
         logger.info(f"Found {len(pricing_elements)} elements containing prices via pattern matching")
-        pricing_html = ' '.join(str(elem) for elem in pricing_elements)
-        return pricing_html
+        currency_html = ' '.join(str(elem) for elem in pricing_elements)
+        currency_text = BeautifulSoup(currency_html, 'lxml').get_text(' ', strip=True) if currency_html else ''
+
+        selector_prices = set(price_pattern.findall(selector_text)) if selector_text else set()
+        currency_prices = set(price_pattern.findall(currency_text)) if currency_text else set()
+        selector_plan_hints = len(plan_hint_pattern.findall(selector_text)) if selector_text else 0
+        currency_plan_hints = len(plan_hint_pattern.findall(currency_text)) if currency_text else 0
+
+        if selector_html and selector_prices:
+            if len(currency_prices) > len(selector_prices):
+                return currency_html
+            if selector_plan_hints == 0 and currency_plan_hints > 0:
+                return currency_html
+            return selector_html
+        return currency_html
+
+    if selector_html and selector_text and price_pattern.search(selector_text):
+        return selector_html
     
     return soup.get_text()
 
@@ -228,7 +247,27 @@ def extract_structured_pricing(text: str) -> str:
                 pairs.append((plan, price, unit))
     merged = merge_best(pairs)
     if merged:
-        return '\n\n'.join(f"• {line}" for line in merged)
+        parsed: list[tuple[str, str, str]] = []
+        for line in merged:
+            if ' — ' not in line:
+                continue
+            plan, rest = line.split(' — ', 1)
+            m = re.search(r'(\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+)(.*)$', rest)
+            if not m:
+                continue
+            parsed.append((plan.strip(), m.group(1), m.group(2).strip()))
+        keep = [True] * len(parsed)
+        for i in range(len(parsed)):
+            pi, pri, ui = parsed[i]
+            for j in range(len(parsed)):
+                if i == j:
+                    continue
+                pj, prj, uj = parsed[j]
+                if pri == prj and ui == uj and pi.lower() in pj.lower() and len(pj) > len(pi):
+                    keep[i] = False
+                    break
+        filtered = [merged[i] for i in range(len(merged)) if i < len(keep) and keep[i]]
+        return '\n\n'.join(f"• {line}" for line in (filtered or merged))
 
     lines = []
     seen = set()
