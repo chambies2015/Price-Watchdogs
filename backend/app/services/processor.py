@@ -111,7 +111,8 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
 
 
 def extract_structured_pricing(text: str) -> str:
-    price_pattern = re.compile(r'\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+')
+    price_re = r'(?:\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+)'
+    price_pattern = re.compile(price_re)
 
     text = re.sub(r'\s+', ' ', text).strip()
     price_matches = list(price_pattern.finditer(text))
@@ -143,7 +144,7 @@ def extract_structured_pricing(text: str) -> str:
 
     def pick_plan(window: str, price_rel: int) -> str:
         candidates = []
-        for m in re.finditer(r'([A-Za-z0-9][A-Za-z0-9+,&/\-\s]{2,90}?\b(?:Bundle|Plan|Tier)\b)', window, re.IGNORECASE):
+        for m in re.finditer(r'([A-Za-z][A-Za-z0-9+,&/\-\s]{2,90}?\b(?:Bundle|Plan|Tier)\b)', window, re.IGNORECASE):
             candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
         for m in re.finditer(r'\b(Basic|Standard|Premium|Mobile)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?', window, re.IGNORECASE):
             candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(0).strip()))
@@ -154,6 +155,8 @@ def extract_structured_pricing(text: str) -> str:
 
     def clean_plan(plan: str) -> str:
         plan = re.sub(r'\s+', ' ', plan).strip(' -—|')
+        plan = re.sub(r'^\d+(?:\.\d+)?\s*(?:/|per)\s*(?:month|mo|year|yr)\b\s*', '', plan, flags=re.IGNORECASE).strip()
+        plan = re.sub(r'^\d+\s*/\s*(?:month|mo|year|yr)\b\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^(Starting at|From)\s+', '', plan, flags=re.IGNORECASE)
         plan = re.sub(r'\b(Terms apply|Plans available with or without ads)\b.*$', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^(Netflix|Disney\+|Hulu|ESPN)\s+', '', plan, flags=re.IGNORECASE).strip()
@@ -161,7 +164,58 @@ def extract_structured_pricing(text: str) -> str:
             return ''
         if re.search(r'\bincluded with any\b.*\bplan\b', plan, re.IGNORECASE):
             return ''
+        canonical = {
+            'basic': 'Basic',
+            'standard': 'Standard',
+            'premium': 'Premium',
+            'mobile': 'Mobile',
+            'standard with ads': 'Standard with Ads',
+        }
+        plan_l = plan.lower()
+        if plan_l in canonical:
+            return canonical[plan_l]
         return plan
+
+    def merge_best(pairs: list[tuple[str, str, str]]) -> list[str]:
+        by_plan: dict[str, tuple[str, str, str]] = {}
+        for plan, price, unit in pairs:
+            if not plan:
+                continue
+            key = plan.lower()
+            if key not in by_plan:
+                by_plan[key] = (plan, price, unit)
+                continue
+            prev_plan, prev_price, prev_unit = by_plan[key]
+            if not prev_unit and unit:
+                by_plan[key] = (plan, price, unit)
+                continue
+            if prev_price == price and prev_unit == unit:
+                continue
+            by_plan[key] = (prev_plan, prev_price, prev_unit)
+        ordered = sorted(by_plan.values(), key=lambda x: x[0].lower())
+        return [f"{plan} — {price}{unit}" for plan, price, unit in ordered]
+
+    pairs: list[tuple[str, str, str]] = []
+    pair_patterns = [
+        re.compile(rf'(?P<plan>[A-Za-z][A-Za-z0-9+,&/\-\s]{{2,80}}?\b(?:Bundle|Plan|Tier)\b)\s*(?:[-–—:|]\s*)?(?P<price>{price_re})(?P<tail>.{{0,40}})', re.IGNORECASE),
+        re.compile(rf'(?P<plan>\b(?:Basic|Standard(?:\s+with\s+ads)?|Premium|Mobile)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?)\s*(?P<body>.{{0,60}}?)\s*(?P<price>{price_re})(?P<tail>.{{0,40}})', re.IGNORECASE),
+        re.compile(rf'(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b(?P<tail>.{{0,40}}?)\s*(?P<plan>[A-Za-z][A-Za-z0-9+,&/\-\s]{{2,80}}?\b(?:Bundle|Plan|Tier)\b)', re.IGNORECASE),
+    ]
+    for pat in pair_patterns:
+        for m in pat.finditer(text):
+            plan = clean_plan(m.group('plan'))
+            price = m.group('price')
+            tail = (m.groupdict().get('tail') or '') + ' ' + (m.groupdict().get('body') or '')
+            unit = ''
+            if m.groupdict().get('unit'):
+                unit = ' / month' if m.group('unit').lower() in ('month', 'mo') else ' / year'
+            if not unit:
+                unit = unit_for(tail)
+            if plan:
+                pairs.append((plan, price, unit))
+    merged = merge_best(pairs)
+    if merged:
+        return '\n\n'.join(f"• {line}" for line in merged)
 
     lines = []
     seen = set()
