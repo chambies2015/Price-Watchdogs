@@ -155,6 +155,7 @@ def extract_structured_pricing(text: str) -> str:
 
     def clean_plan(plan: str) -> str:
         plan = re.sub(r'\s+', ' ', plan).strip(' -—|')
+        plan = re.sub(r'^(?:month|monthly|year|yearly|annual)\b\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^\d+(?:\.\d+)?\s*(?:/|per)\s*(?:month|mo|year|yr)\b\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^\d+\s*/\s*(?:month|mo|year|yr)\b\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^(Starting at|From)\s+', '', plan, flags=re.IGNORECASE)

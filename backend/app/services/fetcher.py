@@ -104,6 +104,38 @@ async def _fetch_page_playwright(url: str) -> str:
             logger.info("Scrolling complete")
         except Exception as e:
             logger.warning(f"Scrolling failed: {str(e)}")
+
+        logger.info("Waiting for currency patterns to appear in page text...")
+        try:
+            await page.wait_for_function(
+                r"""() => {
+                    const t = document.body && document.body.innerText ? document.body.innerText : "";
+                    const pricePattern = /\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+/g;
+                    const matches = t.match(pricePattern) || [];
+                    return matches.length >= 1;
+                }""",
+                timeout=20000
+            )
+            logger.info("✓ Currency pattern detected in DOM text")
+        except Exception:
+            logger.warning("No currency pattern detected within 20s; waiting for network idle and retrying")
+            try:
+                await page.wait_for_load_state('networkidle', timeout=10000)
+            except Exception:
+                pass
+            try:
+                await page.wait_for_function(
+                    r"""() => {
+                        const t = document.body && document.body.innerText ? document.body.innerText : "";
+                        const pricePattern = /\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+/g;
+                        const matches = t.match(pricePattern) || [];
+                        return matches.length >= 1;
+                    }""",
+                    timeout=15000
+                )
+                logger.info("✓ Currency pattern detected after retry")
+            except Exception:
+                logger.warning("Still no currency pattern detected; snapshot may not include prices")
         
         try:
             price_info = await page.evaluate(r"""() => {
