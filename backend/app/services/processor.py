@@ -71,6 +71,7 @@ def sanitize_html(html: str) -> str:
 
 def extract_pricing_content(html: str, custom_selector: str = None) -> str:
     soup = BeautifulSoup(html, 'lxml')
+    price_pattern = re.compile(r'\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+', re.IGNORECASE)
     
     if custom_selector:
         selectors = [custom_selector]
@@ -89,10 +90,8 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
     
     if extracted_elements:
         pricing_html = ' '.join(str(elem) for elem in extracted_elements)
-        if pricing_html:
+        if pricing_html and price_pattern.search(BeautifulSoup(pricing_html, 'lxml').get_text(' ', strip=True)):
             return pricing_html
-    
-    price_pattern = re.compile(r'\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+', re.IGNORECASE)
     
     all_elements = soup.find_all(['div', 'section', 'article', 'table', 'tr', 'td', 'p', 'span', 'li'])
     pricing_elements = []
@@ -146,6 +145,12 @@ def extract_structured_pricing(text: str) -> str:
         candidates = []
         for m in re.finditer(r'([A-Za-z][A-Za-z0-9+,&/\-\s]{2,90}?\b(?:Bundle|Plan|Tier)\b)', window, re.IGNORECASE):
             candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
+        for m in re.finditer(r'([A-Za-z][A-Za-z0-9+,&/\-\s]{2,110}?\b(?:Duo|Trio)\b(?:\s+(?:Basic|Premium))?)', window, re.IGNORECASE):
+            candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
+        for m in re.finditer(r'((?:Disney\+|Hulu|ESPN\+)[A-Za-z0-9+,&/\-\s]{2,120}?(?:Bundle|Duo|Trio|Premium|Basic|Hulu|ESPN\+|Disney\+))', window, re.IGNORECASE):
+            val = m.group(1).strip()
+            if sum(1 for k in ('disney+', 'hulu', 'espn+') if k in val.lower()) >= 2 or re.search(r'\b(bundle|duo|trio)\b', val, re.IGNORECASE):
+                candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), val))
         for m in re.finditer(r'\b(Basic|Standard|Premium|Mobile)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?', window, re.IGNORECASE):
             candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(0).strip()))
         if candidates:
@@ -158,13 +163,19 @@ def extract_structured_pricing(text: str) -> str:
         plan = re.sub(r'^(?:month|monthly|year|yearly|annual)\b\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^\d+(?:\.\d+)?\s*(?:/|per)\s*(?:month|mo|year|yr)\b\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^\d+\s*/\s*(?:month|mo|year|yr)\b\s*', '', plan, flags=re.IGNORECASE).strip()
+        plan = re.sub(r'^(?:\d+\s*)?(?:mo|mos|month|months)\b[^,–—]*\s*(?:,|–|—)\s*', '', plan, flags=re.IGNORECASE).strip()
+        plan = re.sub(r'^(?:for\s+your\s+first|over\s+your\s+first)\s+\d+\s+months?\b[^,–—]*\s*(?:,|–|—)\s*', '', plan, flags=re.IGNORECASE).strip()
+        plan = re.sub(r'^mo\s+(?:thereafter|for\s+your\s+first)\b[^,–—]*\s*(?:,|–|—)\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^(Starting at|From)\s+', '', plan, flags=re.IGNORECASE)
         plan = re.sub(r'\b(Terms apply|Plans available with or without ads)\b.*$', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^(Netflix|Disney\+|Hulu|ESPN)\s+', '', plan, flags=re.IGNORECASE).strip()
+        if re.search(r'\byoutube\s+tv\s+base\s+plan\b', plan, re.IGNORECASE):
+            plan = 'YouTube TV Base Plan'
         if any(frag in plan.lower() for frag in bad_plan_fragments):
             return ''
         if re.search(r'\bincluded with any\b.*\bplan\b', plan, re.IGNORECASE):
             return ''
+        plan = re.sub(r'\b(YouTube TV Base Plan)(?:\s+\1)+\b', r'\1', plan, flags=re.IGNORECASE).strip()
         canonical = {
             'basic': 'Basic',
             'standard': 'Standard',
@@ -201,6 +212,7 @@ def extract_structured_pricing(text: str) -> str:
         re.compile(rf'(?P<plan>[A-Za-z][A-Za-z0-9+,&/\-\s]{{2,80}}?\b(?:Bundle|Plan|Tier)\b)\s*(?:[-–—:|]\s*)?(?P<price>{price_re})(?P<tail>.{{0,40}})', re.IGNORECASE),
         re.compile(rf'(?P<plan>\b(?:Basic|Standard(?:\s+with\s+ads)?|Premium|Mobile)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?)\s*(?P<body>.{{0,60}}?)\s*(?P<price>{price_re})(?P<tail>.{{0,40}})', re.IGNORECASE),
         re.compile(rf'(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b(?P<tail>.{{0,40}}?)\s*(?P<plan>[A-Za-z][A-Za-z0-9+,&/\-\s]{{2,80}}?\b(?:Bundle|Plan|Tier)\b)', re.IGNORECASE),
+        re.compile(rf'(?P<plan>(?:(?:Disney\+|Hulu|ESPN\+)[A-Za-z0-9+,&/\-\s]{{2,120}}?)(?:Duo|Trio|Bundle|Premium|Basic|Hulu|ESPN\+|Disney\+))\s*(?:[-–—:|]\s*)?(?P<price>{price_re})(?P<tail>.{{0,60}})', re.IGNORECASE),
     ]
     for pat in pair_patterns:
         for m in pat.finditer(text):
