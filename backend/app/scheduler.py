@@ -33,7 +33,7 @@ This module manages all background jobs using APScheduler:
 - fetch_service_pages: Runs hourly to fetch and snapshot service pages
 - dispatch_pending_alerts: Runs every 5 minutes to send pending email alerts
 - cleanup_snapshots: Runs weekly (Sunday 2 AM) to clean up old snapshots
-- keep_alive: Runs every 59 seconds to prevent Render free tier from sleeping
+- keep_alive: Runs every 29 seconds to prevent Render free tier from sleeping
 
 All jobs are automatically started when the FastAPI application starts.
 Job metrics are tracked in the job_metrics dictionary for monitoring.
@@ -394,7 +394,7 @@ def start_scheduler():
     
     scheduler.add_job(
         keep_alive,
-        trigger=IntervalTrigger(seconds=59),
+        trigger=IntervalTrigger(seconds=29),
         id='keep_alive',
         name='Keep service alive (prevent Render sleep)',
         replace_existing=True
