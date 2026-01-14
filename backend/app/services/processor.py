@@ -39,6 +39,11 @@ NOISE_PATTERNS = [
     r'We use cookies',
     r'Terms apply',
     r'Plans available with or without ads\*+',
+    r'\bStep\s*\d+\s*of\s*\d+\b',
+    r'\bChoose the plan\b',
+    r'\bSign In\b',
+    r'\bLog In\b',
+    r'\bNext\b',
 ]
 
 
@@ -113,6 +118,18 @@ def extract_structured_pricing(text: str) -> str:
     if not price_matches:
         return text[:500] if len(text) > 500 else text
 
+    bad_plan_fragments = (
+        'choose the plan',
+        'step 1 of',
+        'step 2 of',
+        'step 3 of',
+        'sign in',
+        'log in',
+        'next',
+        'continue',
+        'back',
+    )
+
     def unit_for(after: str) -> str:
         m = re.search(r'(?:/|per)\s*(month|mo|year|yr)\b', after, re.IGNORECASE)
         if m:
@@ -128,6 +145,8 @@ def extract_structured_pricing(text: str) -> str:
         candidates = []
         for m in re.finditer(r'([A-Za-z0-9][A-Za-z0-9+,&/\-\s]{2,90}?\b(?:Bundle|Plan|Tier)\b)', window, re.IGNORECASE):
             candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
+        for m in re.finditer(r'\b(Basic|Standard|Premium|Mobile)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?', window, re.IGNORECASE):
+            candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(0).strip()))
         if candidates:
             candidates.sort(key=lambda x: x[0])
             return candidates[0][1]
@@ -137,21 +156,29 @@ def extract_structured_pricing(text: str) -> str:
         plan = re.sub(r'\s+', ' ', plan).strip(' -—|')
         plan = re.sub(r'^(Starting at|From)\s+', '', plan, flags=re.IGNORECASE)
         plan = re.sub(r'\b(Terms apply|Plans available with or without ads)\b.*$', '', plan, flags=re.IGNORECASE).strip()
+        plan = re.sub(r'^(Netflix|Disney\+|Hulu|ESPN)\s+', '', plan, flags=re.IGNORECASE).strip()
+        if any(frag in plan.lower() for frag in bad_plan_fragments):
+            return ''
+        if re.search(r'\bincluded with any\b.*\bplan\b', plan, re.IGNORECASE):
+            return ''
         return plan
 
     lines = []
     seen = set()
     for match in price_matches:
         price = match.group(0)
-        after = text[match.end():match.end() + 80]
+        after = text[match.end():match.end() + 120]
         unit = unit_for(after)
 
-        w_start = max(0, match.start() - 450)
-        w_end = min(len(text), match.end() + 250)
-        window = text[w_start:w_end]
-        price_rel = match.start() - w_start
-
-        plan = clean_plan(pick_plan(window, price_rel))
+        plan = ''
+        for before_chars, after_chars in ((450, 250), (900, 800)):
+            w_start = max(0, match.start() - before_chars)
+            w_end = min(len(text), match.end() + after_chars)
+            window = text[w_start:w_end]
+            price_rel = match.start() - w_start
+            plan = clean_plan(pick_plan(window, price_rel))
+            if plan:
+                break
         key = (plan.lower(), price, unit)
         if key in seen:
             continue
