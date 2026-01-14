@@ -37,6 +37,8 @@ NOISE_PATTERNS = [
     r'Cookie',
     r'Accept all cookies',
     r'We use cookies',
+    r'Terms apply',
+    r'Plans available with or without ads\*+',
 ]
 
 
@@ -105,79 +107,70 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
 
 def extract_structured_pricing(text: str) -> str:
     price_pattern = re.compile(r'\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+')
-    
-    text = re.sub(r'\s+', ' ', text)
-    
+
+    text = re.sub(r'\s+', ' ', text).strip()
     price_matches = list(price_pattern.finditer(text))
     if not price_matches:
         return text[:500] if len(text) > 500 else text
-    
-    pricing_info = {}
-    
-    for match in price_matches:
-        price = match.group(0)
-        if price in pricing_info:
-            continue
-        
-        pos = match.start()
-        
-        before_start = max(0, pos - 300)
-        before_text = text[before_start:pos]
-        
-        after_end = min(len(text), match.end() + 80)
-        after_text = text[match.end():after_end]
-        
-        words_before = before_text.split()
-        words_after = after_text.split()
-        
-        start_idx = max(0, len(words_before) - 25)
-        before_snippet = ' '.join(words_before[start_idx:])
-        
-        end_idx = min(len(words_after), 12)
-        after_snippet = ' '.join(words_after[:end_idx])
-        
-        full_snippet = f"{before_snippet} {price} {after_snippet}".strip()
-        
-        full_snippet = re.sub(r'(Starting at|starting at|From|from)\s*', '', full_snippet, flags=re.IGNORECASE)
-        full_snippet = re.sub(r'\s+', ' ', full_snippet).strip()
-        
-        plan_keywords = [
-            r'Disney\+', r'Hulu', r'ESPN', r'HBO', r'Max', r'Netflix', r'Prime', 
-            r'YouTube', r'Paramount', r'Peacock', r'Apple', r'Amazon',
-            r'Bundle', r'Plan', r'Tier', r'Monthly', r'Annual', r'Yearly',
-            r'Basic', r'Standard', r'Premium', r'Plus', r'Pro', r'Unlimited',
-            r'Ad-Free', r'With Ads', r'No Ads'
-        ]
-        
-        has_context = any(re.search(keyword, full_snippet, re.IGNORECASE) for keyword in plan_keywords)
-        
-        if has_context and len(full_snippet) > 10:
-            if len(full_snippet) > 180:
-                full_snippet = full_snippet[-180:]
-                space_pos = full_snippet.find(' ')
-                if space_pos > 0:
-                    full_snippet = full_snippet[space_pos+1:]
-            
-            pricing_info[price] = full_snippet
-    
-    if pricing_info:
-        lines = []
-        for price in sorted(pricing_info.keys(), key=lambda p: float(p.replace('$', '').replace('€', '').replace('£', '').replace('¥', ''))):
-            lines.append(f"• {pricing_info[price]}")
-        return '\n\n'.join(lines)
-    
-    unique_prices = []
+
+    def unit_for(after: str) -> str:
+        m = re.search(r'(?:/|per)\s*(month|mo|year|yr)\b', after, re.IGNORECASE)
+        if m:
+            u = m.group(1).lower()
+            return ' / month' if u in ('month', 'mo') else ' / year'
+        if re.search(r'\bmonthly\b', after, re.IGNORECASE):
+            return ' / month'
+        if re.search(r'\b(annual|yearly)\b', after, re.IGNORECASE):
+            return ' / year'
+        return ''
+
+    def pick_plan(window: str, price_rel: int) -> str:
+        candidates = []
+        for m in re.finditer(r'([A-Za-z0-9][A-Za-z0-9+,&/\-\s]{2,90}?\b(?:Bundle|Plan|Tier)\b)', window, re.IGNORECASE):
+            candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
+        if candidates:
+            candidates.sort(key=lambda x: x[0])
+            return candidates[0][1]
+        return ''
+
+    def clean_plan(plan: str) -> str:
+        plan = re.sub(r'\s+', ' ', plan).strip(' -—|')
+        plan = re.sub(r'^(Starting at|From)\s+', '', plan, flags=re.IGNORECASE)
+        plan = re.sub(r'\b(Terms apply|Plans available with or without ads)\b.*$', '', plan, flags=re.IGNORECASE).strip()
+        return plan
+
+    lines = []
     seen = set()
     for match in price_matches:
         price = match.group(0)
-        if price not in seen:
-            unique_prices.append(price)
-            seen.add(price)
-    
-    if unique_prices:
-        return "Prices found: " + ", ".join(unique_prices)
-    
-    return text[:500] if len(text) > 500 else text
+        after = text[match.end():match.end() + 80]
+        unit = unit_for(after)
+
+        w_start = max(0, match.start() - 450)
+        w_end = min(len(text), match.end() + 250)
+        window = text[w_start:w_end]
+        price_rel = match.start() - w_start
+
+        plan = clean_plan(pick_plan(window, price_rel))
+        key = (plan.lower(), price, unit)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        if plan:
+            lines.append(f"{plan} — {price}{unit}")
+
+    if lines:
+        return '\n\n'.join(f"• {line}" for line in lines)
+
+    unique_prices = []
+    seen_prices = set()
+    for match in price_matches:
+        p = match.group(0)
+        if p not in seen_prices:
+            unique_prices.append(p)
+            seen_prices.add(p)
+    return "Prices found: " + ", ".join(unique_prices)
 
 
 def normalize_text(text: str, preserve_newlines: bool = False) -> str:
