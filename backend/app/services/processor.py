@@ -121,36 +121,42 @@ def extract_structured_pricing(text: str) -> str:
         
         pos = match.start()
         
-        before_start = max(0, pos - 250)
+        before_start = max(0, pos - 300)
         before_text = text[before_start:pos]
         
-        after_end = min(len(text), match.end() + 50)
+        after_end = min(len(text), match.end() + 80)
         after_text = text[match.end():after_end]
         
         words_before = before_text.split()
         words_after = after_text.split()
         
-        start_idx = max(0, len(words_before) - 20)
+        start_idx = max(0, len(words_before) - 25)
         before_snippet = ' '.join(words_before[start_idx:])
         
-        end_idx = min(len(words_after), 8)
+        end_idx = min(len(words_after), 12)
         after_snippet = ' '.join(words_after[:end_idx])
         
         full_snippet = f"{before_snippet} {price} {after_snippet}".strip()
         
-        full_snippet = re.sub(r'(Starting at|starting at)\s*', '', full_snippet, flags=re.IGNORECASE)
+        full_snippet = re.sub(r'(Starting at|starting at|From|from)\s*', '', full_snippet, flags=re.IGNORECASE)
         full_snippet = re.sub(r'\s+', ' ', full_snippet).strip()
         
-        service_names = re.findall(r'\b(Disney\+|Hulu|ESPN|HBO|Max|Netflix|Prime|YouTube|Paramount|Peacock|Apple|Amazon)\b', full_snippet, re.IGNORECASE)
+        plan_keywords = [
+            r'Disney\+', r'Hulu', r'ESPN', r'HBO', r'Max', r'Netflix', r'Prime', 
+            r'YouTube', r'Paramount', r'Peacock', r'Apple', r'Amazon',
+            r'Bundle', r'Plan', r'Tier', r'Monthly', r'Annual', r'Yearly',
+            r'Basic', r'Standard', r'Premium', r'Plus', r'Pro', r'Unlimited',
+            r'Ad-Free', r'With Ads', r'No Ads'
+        ]
         
-        bundle_pattern = re.search(r'([\w\+,\s]+Bundle|[\w\+,\s]+plan|[\w\+,\s]+tier)', full_snippet, re.IGNORECASE)
+        has_context = any(re.search(keyword, full_snippet, re.IGNORECASE) for keyword in plan_keywords)
         
-        has_context = service_names or bundle_pattern
-        
-        if has_context and len(full_snippet) > 5:
-            if len(full_snippet) > 150:
-                full_snippet = full_snippet[-150:]
-                full_snippet = full_snippet[full_snippet.find(' ')+1:]
+        if has_context and len(full_snippet) > 10:
+            if len(full_snippet) > 180:
+                full_snippet = full_snippet[-180:]
+                space_pos = full_snippet.find(' ')
+                if space_pos > 0:
+                    full_snippet = full_snippet[space_pos+1:]
             
             pricing_info[price] = full_snippet
     
@@ -202,12 +208,9 @@ def process_html(html: str, custom_selector: str = None) -> Tuple[str, str, str]
     pricing_content = extract_pricing_content(html, custom_selector)
     logger.info(f"Extracted pricing content: {len(pricing_content)} bytes")
     
-    sanitized = sanitize_html(pricing_content)
-    logger.info(f"Sanitized content: {len(sanitized)} bytes")
-    
-    soup = BeautifulSoup(sanitized, 'lxml')
-    text_content = soup.get_text()
-    logger.info(f"Text content: {len(text_content)} chars")
+    soup = BeautifulSoup(pricing_content, 'lxml')
+    text_content = soup.get_text(separator=' ', strip=True)
+    logger.info(f"Text content extracted: {len(text_content)} chars")
     
     structured_content = extract_structured_pricing(text_content)
     logger.info(f"Structured pricing: {len(structured_content)} chars")
