@@ -1,6 +1,7 @@
 import httpx
 import logging
 import html
+import re
 from typing import Optional
 from datetime import datetime
 from app.config import settings
@@ -135,6 +136,19 @@ async def send_alert_email(
     if not settings.mailgun_api_key or not settings.mailgun_domain or not settings.mailgun_from_email:
         logger.warning("Mailgun configuration missing, skipping email send")
         return False
+
+    domain = settings.mailgun_domain.strip()
+    if "." not in domain:
+        logger.error("Invalid MAILGUN_DOMAIN: %s", domain)
+        return False
+
+    from_email = settings.mailgun_from_email.strip()
+    from_addr_match = re.search(r"<([^>]+)>", from_email)
+    from_addr = (from_addr_match.group(1) if from_addr_match else from_email).strip()
+    if "@" in from_addr:
+        from_domain = from_addr.split("@", 1)[1].strip().lower()
+        if from_domain and not (domain.lower().endswith(from_domain) or from_domain.endswith(domain.lower())):
+            logger.warning("MAILGUN_FROM_EMAIL domain (%s) does not match MAILGUN_DOMAIN (%s)", from_domain, domain)
     
     try:
         html_content, text_content = render_alert_email(
@@ -143,12 +157,18 @@ async def send_alert_email(
         
         subject = f"Price Change Detected: {service.name}"
         
-        mailgun_url = f"https://api.mailgun.net/v3/{settings.mailgun_domain}/messages"
+        base = (settings.mailgun_api_base_url or "https://api.mailgun.net").rstrip("/")
+        if base.endswith("/v3"):
+            base = base[:-3].rstrip("/")
+        mailgun_url = f"{base}/v3/{domain}/messages"
+        api_key = settings.mailgun_api_key.strip()
+        if api_key.lower().startswith("api:"):
+            api_key = api_key.split(":", 1)[1].strip()
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 mailgun_url,
-                auth=("api", settings.mailgun_api_key),
+                auth=("api", api_key),
                 data={
                     "from": settings.mailgun_from_email,
                     "to": user.email,
@@ -163,7 +183,14 @@ async def send_alert_email(
                 logger.info(f"Successfully sent alert email to {user.email} for change event {change_event.id}")
                 return True
             else:
-                logger.error(f"Failed to send email via Mailgun: {response.status_code} - {response.text}")
+                if response.status_code in (401, 403):
+                    logger.error(
+                        "Mailgun auth failed (%s). Check MAILGUN_API_KEY/MAILGUN_DOMAIN and MAILGUN_API_BASE_URL (EU accounts typically use https://api.eu.mailgun.net). Response: %s",
+                        response.status_code,
+                        response.text,
+                    )
+                else:
+                    logger.error(f"Failed to send email via Mailgun: {response.status_code} - {response.text}")
                 return False
                 
     except httpx.TimeoutException:

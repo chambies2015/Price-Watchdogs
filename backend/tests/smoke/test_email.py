@@ -22,8 +22,9 @@ async def test_email_service_connectivity():
     with patch('httpx.AsyncClient', return_value=mock_client), \
          patch('app.services.email_service.settings') as mock_settings:
         mock_settings.mailgun_api_key = "test-key"
-        mock_settings.mailgun_domain = "test-domain"
-        mock_settings.mailgun_from_email = "test@example.com"
+        mock_settings.mailgun_domain = "test-domain.com"
+        mock_settings.mailgun_from_email = "Price Watchdogs <noreply@test-domain.com>"
+        mock_settings.mailgun_api_base_url = "https://api.mailgun.net"
         
         change_event = ChangeEvent(
             id=uuid.uuid4(),
@@ -84,8 +85,9 @@ async def test_email_service_handles_failure():
     with patch('httpx.AsyncClient', return_value=mock_client), \
          patch('app.services.email_service.settings') as mock_settings:
         mock_settings.mailgun_api_key = "test-key"
-        mock_settings.mailgun_domain = "test-domain"
-        mock_settings.mailgun_from_email = "test@example.com"
+        mock_settings.mailgun_domain = "test-domain.com"
+        mock_settings.mailgun_from_email = "Price Watchdogs <noreply@test-domain.com>"
+        mock_settings.mailgun_api_base_url = "https://api.mailgun.net"
         
         change_event = ChangeEvent(
             id=uuid.uuid4(),
