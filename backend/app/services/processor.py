@@ -108,7 +108,9 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
         logger.info(f"Found {len(pricing_elements)} elements containing prices via pattern matching")
         candidates = []
         seen = set()
+        all_found_prices = set()
         for elem in pricing_elements:
+            all_found_prices.update(price_pattern.findall(elem.get_text(' ', strip=True) or ''))
             cur = elem
             for _ in range(4):
                 if cur is None or getattr(cur, "name", None) is None:
@@ -128,9 +130,28 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
         best_node = max(candidates, key=score)
         currency_html = str(best_node)
         currency_text = best_node.get_text(' ', strip=True)
+        currency_prices = set(price_pattern.findall(currency_text)) if currency_text else set()
+
+        if len(currency_prices) < 2 and len(all_found_prices) >= 2 and candidates:
+            chosen = []
+            chosen_prices = set()
+            for node in sorted(candidates, key=score, reverse=True):
+                t = node.get_text(' ', strip=True) if node else ''
+                node_prices = set(price_pattern.findall(t)) if t else set()
+                if not node_prices:
+                    continue
+                if not (node_prices - chosen_prices):
+                    continue
+                chosen.append(node)
+                chosen_prices.update(node_prices)
+                if chosen_prices >= all_found_prices or len(chosen) >= 8:
+                    break
+            if chosen and len(chosen_prices) > len(currency_prices):
+                currency_html = ' '.join(str(n) for n in chosen)
+                currency_text = ' '.join(n.get_text(' ', strip=True) for n in chosen)
+                currency_prices = chosen_prices
 
         selector_prices = set(price_pattern.findall(selector_text)) if selector_text else set()
-        currency_prices = set(price_pattern.findall(currency_text)) if currency_text else set()
         selector_plan_hints = len(plan_hint_pattern.findall(selector_text)) if selector_text else 0
         currency_plan_hints = len(plan_hint_pattern.findall(currency_text)) if currency_text else 0
 
@@ -279,7 +300,7 @@ def extract_structured_pricing(text: str) -> str:
     pairs: list[tuple[str, str, str]] = []
     pair_patterns = [
         re.compile(rf'(?P<plan>[A-Za-z][A-Za-z0-9+,&/\-\s]{{2,80}}?\b(?:Bundle|Plan|Tier)\b)\s*(?:[-–—:|]\s*)?(?P<price>{price_re})(?P<tail>.{{0,40}})', re.IGNORECASE),
-        re.compile(rf'(?P<plan>\b(?:Basic|Standard(?:\s+with\s+ads)?|Premium|Mobile|With\s+Ads|Ad[- ]Free|Ultimate\s+Ad[- ]Free)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?)\s*(?P<body>.{{0,60}}?)\s*(?P<price>{price_re})(?P<tail>.{{0,40}})', re.IGNORECASE),
+        re.compile(rf'(?P<plan>\b(?:Basic|Standard(?:\s+with\s+ads)?|Premium|Mobile|With\s+Ads|Ad[- ]Free|Ultimate\s+Ad[- ]Free)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?)\s*(?P<body>.{{0,60}}?)\s*(?P<price>{price_re})(?P<tail>(?:(?!\b(?:Basic|Standard|Premium|Mobile|With\s+Ads|Ad[- ]Free|Ultimate\s+Ad[- ]Free)\b).){{0,80}})', re.IGNORECASE),
         re.compile(rf'(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b(?P<tail>.{{0,40}}?)\s*(?P<plan>[A-Za-z][A-Za-z0-9+,&/\-\s]{{2,80}}?\b(?:Bundle|Plan|Tier)\b)', re.IGNORECASE),
         re.compile(rf'(?P<plan>(?:(?:Disney\+|Hulu|ESPN\+|Max|HBO\s*Max)[A-Za-z0-9+,&/\-\s]{{2,150}}?)(?:Duo|Trio|Bundle|Premium|Basic|Standard|Hulu|ESPN\+|Disney\+|Max|HBO\s*Max))\s*(?:[-–—:|]\s*)?(?P<price>{price_re})(?P<tail>.{{0,60}})', re.IGNORECASE),
     ]
