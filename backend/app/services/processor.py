@@ -180,6 +180,7 @@ def extract_structured_pricing(text: str) -> str:
 
     bad_plan_fragments = (
         'choose the plan',
+        'choose your plan',
         'step 1 of',
         'step 2 of',
         'step 3 of',
@@ -188,7 +189,7 @@ def extract_structured_pricing(text: str) -> str:
         'next',
         'continue',
         'back',
-        'select',
+        'learn more about plan',
     )
 
     def unit_for(after: str) -> str:
@@ -208,11 +209,21 @@ def extract_structured_pricing(text: str) -> str:
             candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
         for m in re.finditer(r'([A-Za-z][A-Za-z0-9+,&/\-\s]{2,110}?\b(?:Duo|Trio)\b(?:\s+(?:Basic|Premium))?)', window, re.IGNORECASE):
             candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
+        for m in re.finditer(r'\b(Prime\s+(?:Monthly|Annual|for\s+Young\s+Adults|Access))\b', window, re.IGNORECASE):
+            candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
+        for m in re.finditer(r'\b(Paramount\+\s+(?:Premium|Essential))\b', window, re.IGNORECASE):
+            candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
+        for m in re.finditer(r'\b(Apple\s+TV\+)\b', window, re.IGNORECASE):
+            candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
+        for m in re.finditer(r'\b(Premium\s+Plus)\b', window, re.IGNORECASE):
+            candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
+        for m in re.finditer(r'\b(Select|Individual|Student|Family)\b', window, re.IGNORECASE):
+            candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(1).strip()))
         for m in re.finditer(r'((?:Disney\+|Hulu|ESPN\+|Max|HBO\s*Max)[A-Za-z0-9+,&/\-\s]{2,140}?(?:Bundle|Duo|Trio|Premium|Basic|Standard|Hulu|ESPN\+|Disney\+|Max|HBO\s*Max))', window, re.IGNORECASE):
             val = m.group(1).strip()
             if sum(1 for k in ('disney+', 'hulu', 'espn+', 'max') if k in val.lower()) >= 2 or re.search(r'\b(bundle|duo|trio)\b', val, re.IGNORECASE):
                 candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), val))
-        for m in re.finditer(r'\b(Basic|Standard|Premium|Mobile)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?', window, re.IGNORECASE):
+        for m in re.finditer(r'\b(Basic|Standard|Premium|Premium\s+Plus|Select|Mobile)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?', window, re.IGNORECASE):
             candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(0).strip()))
         for m in re.finditer(r'\b(With\s+Ads|Ad[- ]Free|Ultimate\s+Ad[- ]Free)\b', window, re.IGNORECASE):
             candidates.append((abs(((m.start() + m.end()) // 2) - price_rel), m.group(0).strip()))
@@ -223,7 +234,7 @@ def extract_structured_pricing(text: str) -> str:
 
     def clean_plan(plan: str) -> str:
         plan = re.sub(r'\s+', ' ', plan).strip(' -—|')
-        plan = re.sub(r'^Select\s+', '', plan, flags=re.IGNORECASE).strip()
+        plan = re.sub(r'^Select\s+(?=(?:Disney\+|Hulu|ESPN\+|Max|HBO\s*Max)\b)', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^(?:month|monthly|year|yearly|annual)\b\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^\d+(?:\.\d+)?\s*(?:/|per)\s*(?:month|mo|year|yr)\b\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^\d+\s*/\s*(?:month|mo|year|yr)\b\s*', '', plan, flags=re.IGNORECASE).strip()
@@ -256,8 +267,6 @@ def extract_structured_pricing(text: str) -> str:
                 plan = 'Disney+, ESPN+ Bundle'
         if re.search(r'\byoutube\s+tv\s+base\s+plan\b', plan, re.IGNORECASE):
             plan = 'YouTube TV Base Plan'
-        if plan.lower() in ('select', 'select plan'):
-            return ''
         if any(frag in plan.lower() for frag in bad_plan_fragments):
             return ''
         if re.search(r'\bincluded with any\b.*\bplan\b', plan, re.IGNORECASE):
@@ -267,6 +276,8 @@ def extract_structured_pricing(text: str) -> str:
             'basic': 'Basic',
             'standard': 'Standard',
             'premium': 'Premium',
+            'premium plus': 'Premium Plus',
+            'select': 'Select',
             'mobile': 'Mobile',
             'standard with ads': 'Standard with Ads',
             'with ads': 'Basic with Ads',
@@ -290,6 +301,9 @@ def extract_structured_pricing(text: str) -> str:
                 by_plan[key] = (plan, price, unit)
                 continue
             prev_plan, prev_price, prev_unit = by_plan[key]
+            if prev_unit == ' / year' and unit == ' / month':
+                by_plan[key] = (plan, price, unit)
+                continue
             if not prev_unit and unit:
                 by_plan[key] = (plan, price, unit)
                 continue
@@ -302,6 +316,11 @@ def extract_structured_pricing(text: str) -> str:
     pairs: list[tuple[str, str, str]] = []
     pair_patterns = [
         re.compile(rf'(?P<plan>Disney\+[A-Za-z0-9+,&/\-\s]{{2,160}}?\bBundle\b)(?P<body>.{{0,2600}}?)\bStarting\s+at\b\s*(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b', re.IGNORECASE),
+        re.compile(rf'(?P<plan>\bPrime\s+(?:Monthly|Annual|for\s+Young\s+Adults|Access)\b)(?P<body>.{{0,140}}?)\s*(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b', re.IGNORECASE),
+        re.compile(rf'(?P<plan>\bApple\s+TV\+\b)(?P<body>.{{0,220}}?)\s*(?P<price>{price_re})(?P<tail>.{{0,60}})', re.IGNORECASE),
+        re.compile(rf'(?P<plan>\bParamount\+\s+(?:Premium|Essential)\b)(?P<body>.{{0,140}}?)\s*(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b', re.IGNORECASE),
+        re.compile(rf'(?P<plan>\b(?:Select|Premium\s+Plus|Premium)\b)(?P<body>.{{0,140}}?)\s*(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b', re.IGNORECASE),
+        re.compile(rf'(?P<plan>\b(?:Individual|Student|Duo|Family)\b)(?P<body>.{{0,180}}?)\s*(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b', re.IGNORECASE),
         re.compile(rf'(?P<plan>[A-Za-z][A-Za-z0-9+,&/\-\s]{{2,80}}?\b(?:Bundle|Plan|Tier)\b)\s*(?:[-–—:|]\s*)?(?P<price>{price_re})(?P<tail>.{{0,40}})', re.IGNORECASE),
         re.compile(rf'(?P<plan>\b(?:Basic|Standard(?:\s+with\s+ads)?|Premium|Mobile|With\s+Ads|Ad[- ]Free|Ultimate\s+Ad[- ]Free)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?)\s*(?P<body>.{{0,60}}?)\s*(?P<price>{price_re})(?P<tail>(?:(?!\b(?:Basic|Standard|Premium|Mobile|With\s+Ads|Ad[- ]Free|Ultimate\s+Ad[- ]Free)\b).){{0,80}})', re.IGNORECASE),
         re.compile(rf'(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b(?P<tail>.{{0,40}}?)\s*(?P<plan>[A-Za-z][A-Za-z0-9+,&/\-\s]{{2,80}}?\b(?:Bundle|Plan|Tier)\b)', re.IGNORECASE),
@@ -321,6 +340,8 @@ def extract_structured_pricing(text: str) -> str:
                 pairs.append((plan, price, unit))
     merged = merge_best(pairs)
     if merged:
+        if any(re.search(r' — \\$(?!0(?:\\.00)?\\b)', line) for line in merged):
+            merged = [line for line in merged if not re.search(r' — \\$0(?:\\.00)?\\b', line)]
         parsed: list[tuple[str, str, str]] = []
         for line in merged:
             if ' — ' not in line:
