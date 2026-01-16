@@ -188,6 +188,7 @@ def extract_structured_pricing(text: str) -> str:
         'next',
         'continue',
         'back',
+        'select',
     )
 
     def unit_for(after: str) -> str:
@@ -222,6 +223,7 @@ def extract_structured_pricing(text: str) -> str:
 
     def clean_plan(plan: str) -> str:
         plan = re.sub(r'\s+', ' ', plan).strip(' -—|')
+        plan = re.sub(r'^Select\s+', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^(?:month|monthly|year|yearly|annual)\b\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^\d+(?:\.\d+)?\s*(?:/|per)\s*(?:month|mo|year|yr)\b\s*', '', plan, flags=re.IGNORECASE).strip()
         plan = re.sub(r'^\d+\s*/\s*(?:month|mo|year|yr)\b\s*', '', plan, flags=re.IGNORECASE).strip()
@@ -299,6 +301,7 @@ def extract_structured_pricing(text: str) -> str:
 
     pairs: list[tuple[str, str, str]] = []
     pair_patterns = [
+        re.compile(rf'(?P<plan>Disney\+[A-Za-z0-9+,&/\-\s]{{2,160}}?\bBundle\b)(?P<body>.{{0,2600}}?)\bStarting\s+at\b\s*(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b', re.IGNORECASE),
         re.compile(rf'(?P<plan>[A-Za-z][A-Za-z0-9+,&/\-\s]{{2,80}}?\b(?:Bundle|Plan|Tier)\b)\s*(?:[-–—:|]\s*)?(?P<price>{price_re})(?P<tail>.{{0,40}})', re.IGNORECASE),
         re.compile(rf'(?P<plan>\b(?:Basic|Standard(?:\s+with\s+ads)?|Premium|Mobile|With\s+Ads|Ad[- ]Free|Ultimate\s+Ad[- ]Free)\b(?:\s+(?:with\s+ads|ad[- ]free|no\s+ads))?)\s*(?P<body>.{{0,60}}?)\s*(?P<price>{price_re})(?P<tail>(?:(?!\b(?:Basic|Standard|Premium|Mobile|With\s+Ads|Ad[- ]Free|Ultimate\s+Ad[- ]Free)\b).){{0,80}})', re.IGNORECASE),
         re.compile(rf'(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b(?P<tail>.{{0,40}}?)\s*(?P<plan>[A-Za-z][A-Za-z0-9+,&/\-\s]{{2,80}}?\b(?:Bundle|Plan|Tier)\b)', re.IGNORECASE),
