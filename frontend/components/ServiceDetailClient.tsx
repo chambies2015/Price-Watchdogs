@@ -7,6 +7,7 @@ import { servicesApi, changesApi, snapshotsApi, Service, ServiceUpdate, ChangeEv
 import { useAuth } from '@/contexts/AuthContext';
 import ServiceForm from '@/components/ServiceForm';
 import ServiceDetail from '@/components/ServiceDetail';
+import SnapshotList from '@/components/SnapshotList';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { formatDateTime } from '@/lib/datetime';
@@ -34,7 +35,7 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
       const [serviceData, changesData, snapshotsData] = await Promise.all([
         servicesApi.get(serviceId),
         changesApi.getServiceChanges(serviceId, 5).catch(() => []),
-        snapshotsApi.getServiceSnapshots(serviceId, 5).catch(() => []),
+        snapshotsApi.getServiceSnapshots(serviceId, 20).catch(() => []),
       ]);
       setService(serviceData);
       setRecentChanges(changesData);
@@ -290,31 +291,7 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
                 <p className="text-zinc-600 dark:text-zinc-400">No snapshots yet.</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {recentSnapshots.map((snapshot, index) => (
-                  <div
-                    key={snapshot.id}
-                    className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                            Snapshot #{recentSnapshots.length - index}
-                          </span>
-                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {formatDateTime(snapshot.created_at)}
-                          </span>
-                        </div>
-                        <p className="mt-2 font-mono text-xs text-zinc-600 dark:text-zinc-400">
-                          {snapshot.normalized_content.substring(0, 100)}
-                          {snapshot.normalized_content.length > 100 ? '...' : ''}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <SnapshotList snapshots={recentSnapshots} serviceId={service.id} />
             )}
           </div>
         )}

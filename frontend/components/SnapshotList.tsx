@@ -38,7 +38,7 @@ export default function SnapshotList({ snapshots, serviceId }: SnapshotListProps
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                    Snapshot #{snapshots.length - index}
+                    Snapshot
                   </span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
                     {formatDateTime(snapshot.created_at)}
