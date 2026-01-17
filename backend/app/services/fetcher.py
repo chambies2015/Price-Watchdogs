@@ -123,6 +123,18 @@ async def _fetch_page_playwright(url: str) -> str:
                 await page.wait_for_load_state('networkidle', timeout=10000)
             except Exception:
                 pass
+            if "paramountplus.com" in (url or "").lower():
+                try:
+                    await page.wait_for_function(
+                        r"""() => {
+                            const t = document.body && document.body.innerText ? document.body.innerText : "";
+                            return /Paramount\+\s+(Essential|Premium)/i.test(t);
+                        }""",
+                        timeout=15000
+                    )
+                    logger.info("✓ Paramount+ plan labels detected in DOM text")
+                except Exception:
+                    logger.warning("No Paramount+ plan labels detected within 15s")
             try:
                 await page.wait_for_function(
                     r"""() => {
@@ -137,6 +149,7 @@ async def _fetch_page_playwright(url: str) -> str:
             except Exception:
                 logger.warning("Still no currency pattern detected; snapshot may not include prices")
         
+        page_has_currency = False
         try:
             price_info = await page.evaluate(r"""() => {
                 const text = document.body.innerText;
@@ -156,6 +169,7 @@ async def _fetch_page_playwright(url: str) -> str:
             }""")
             
             if price_info['found']:
+                page_has_currency = True
                 logger.info(f"✓ Found {price_info['count']} prices: {price_info['sample']}")
             else:
                 logger.warning(f"✗ No pricing patterns found")
@@ -169,6 +183,26 @@ async def _fetch_page_playwright(url: str) -> str:
         logger.info("Capturing content...")
         await page.wait_for_timeout(1000)
         content = await page.content()
+        if not page_has_currency:
+            try:
+                frames = [f for f in page.frames if f != page.main_frame]
+                if frames:
+                    combined = [content]
+                    for f in frames[:8]:
+                        try:
+                            frame_text = await f.evaluate(
+                                r"""() => document.body && document.body.innerText ? document.body.innerText : """""
+                            )
+                            if frame_text and re.search(r'\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+', frame_text):
+                                frame_html = await f.content()
+                                combined.append(frame_html)
+                        except Exception:
+                            continue
+                    if len(combined) > 1:
+                        content = "\n".join(combined)
+                        logger.info("✓ Appended iframe content containing currency patterns")
+            except Exception:
+                pass
         logger.info(f"✓ Captured {len(content)} bytes")
         
         return content
