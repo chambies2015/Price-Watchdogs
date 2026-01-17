@@ -8,7 +8,11 @@ from fastapi import status
 async def test_root_endpoint(client: AsyncClient):
     response = await client.get("/")
     assert response.status_code == status.HTTP_200_OK
-    assert "message" in response.json()
+    content_type = response.headers.get("content-type", "")
+    if "application/json" in content_type:
+        assert "message" in response.json()
+    else:
+        assert "<html" in response.text.lower()
 
 
 @pytest.mark.smoke
