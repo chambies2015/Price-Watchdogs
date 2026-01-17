@@ -90,6 +90,14 @@ export default function LoginPageClient() {
             </button>
           </div>
           <div className="text-center text-sm">
+            <Link
+              href="/forgot-password"
+              className="font-medium text-zinc-900 hover:text-zinc-700 dark:text-zinc-50 dark:hover:text-zinc-200"
+            >
+              Forgot your password?
+            </Link>
+          </div>
+          <div className="text-center text-sm">
             <span className="text-zinc-600 dark:text-zinc-400">Don't have an account? </span>
             <Link
               href="/register"

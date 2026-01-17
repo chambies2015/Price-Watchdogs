@@ -50,6 +50,20 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  new_password: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;
@@ -102,6 +116,27 @@ export const authApi = {
   
   getMe: async (): Promise<User> => {
     return apiRequest<User>('/auth/me');
+  },
+
+  forgotPassword: async (data: ForgotPasswordRequest): Promise<{ success: boolean }> => {
+    return apiRequest<{ success: boolean }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  resetPassword: async (data: ResetPasswordRequest): Promise<{ success: boolean }> => {
+    return apiRequest<{ success: boolean }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  changePassword: async (data: ChangePasswordRequest): Promise<{ success: boolean }> => {
+    return apiRequest<{ success: boolean }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 };
 

@@ -6,7 +6,7 @@ from alembic import context
 import asyncio
 from app.database import Base
 from app.config import settings
-from app.models import User, Service, Snapshot, ChangeEvent, Alert
+from app.models import User, Service, Snapshot, ChangeEvent, Alert, PasswordResetToken
 
 config = context.config
 
