@@ -29,7 +29,30 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <div className="app-shell">
+            <div className="app-content">{children}</div>
+            <footer className="app-footer">
+              <a
+                href="https://www.linkedin.com/in/d-g-c/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                LinkedIn
+              </a>
+              <span className="footer-separator">•</span>
+              <a
+                href="https://github.com/chambies2015"
+                target="_blank"
+                rel="noreferrer"
+              >
+                GitHub
+              </a>
+              <span className="footer-separator">•</span>
+              <a href="mailto:pricewatchdogs@gmail.com">Support</a>
+            </footer>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );
