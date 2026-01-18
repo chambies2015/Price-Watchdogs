@@ -101,10 +101,11 @@ async def trigger_snapshot(
         )
     
     try:
-        snapshot = await create_snapshot(db, service)
+        snapshot, created_new = await create_snapshot(db, service)
         
         try:
-            await process_new_snapshot(db, snapshot)
+            if created_new:
+                await process_new_snapshot(db, snapshot)
         except Exception as e:
             pass
         

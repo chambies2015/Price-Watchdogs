@@ -12,6 +12,12 @@ from app.models.snapshot import Snapshot
 
 logger = logging.getLogger(__name__)
 
+def _frontend_url(path: str) -> str:
+    base = (settings.frontend_base_url or "").rstrip("/")
+    if not path.startswith("/"):
+        path = "/" + path
+    return f"{base}{path}"
+
 
 def render_alert_email(
     change_event: ChangeEvent,
@@ -30,7 +36,8 @@ def render_alert_email(
     }
     
     change_label = change_type_labels.get(change_event.change_type.value, "Change Detected")
-    diff_url = f"{settings.frontend_base_url}/services/{service.id}/changes/{change_event.id}"
+    diff_url = _frontend_url(f"/services/change-detail?id={service.id}&changeId={change_event.id}")
+    service_url = _frontend_url(f"/services/detail?id={service.id}")
     
     old_content_preview = ""
     new_content_preview = ""
@@ -76,6 +83,7 @@ def render_alert_email(
         <div class="content">
             <h2>{html.escape(service.name)}</h2>
             <p><a href="{html.escape(service.url)}">{html.escape(service.url)}</a></p>
+            <p><a href="{html.escape(service_url)}">Open service dashboard</a></p>
             
             <div style="margin: 20px 0;">
                 <span class="change-type">{change_label}</span>
@@ -112,6 +120,8 @@ Change Type: {change_label}
 Confidence: {change_event.confidence_score:.0%}
 Summary: {change_event.summary}
 Detected: {change_event.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
+
+Service dashboard: {service_url}
 
 {f'Before:\n{old_content_preview}\n' if old_content_preview else ''}After:
 {new_content_preview}

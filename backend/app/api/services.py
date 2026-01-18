@@ -45,10 +45,12 @@ async def create_initial_snapshot_background(service_id: UUID):
                 return
             
             logger.info(f"Creating initial snapshot for service {service_id} in background")
-            snapshot = await create_snapshot(db, service)
+            snapshot, created_new = await create_snapshot(db, service)
             logger.info(f"Snapshot {snapshot.id} created, processing changes...")
             
-            change_event = await process_new_snapshot(db, snapshot)
+            change_event = None
+            if created_new:
+                change_event = await process_new_snapshot(db, snapshot)
             if change_event:
                 logger.info(f"Change event {change_event.id} created for service {service_id}")
             else:
@@ -234,8 +236,10 @@ async def trigger_manual_check(
     
     async def run_check():
         try:
-            snapshot = await create_snapshot(db, service)
-            change_event = await process_new_snapshot(db, snapshot)
+            snapshot, created_new = await create_snapshot(db, service)
+            change_event = None
+            if created_new:
+                change_event = await process_new_snapshot(db, snapshot)
             return {
                 "success": True,
                 "snapshot_id": str(snapshot.id),

@@ -48,12 +48,13 @@ async def process_service_with_retry(
             if not should_check_service(service):
                 return True, "skipped_not_due"
             
-            snapshot = await create_snapshot(db, service)
+            snapshot, created_new = await create_snapshot(db, service)
             
             try:
-                change_event = await process_new_snapshot(db, snapshot)
-                if change_event:
-                    logger.info(f"Detected change for service {service.id}: {change_event.change_type.value}")
+                if created_new:
+                    change_event = await process_new_snapshot(db, snapshot)
+                    if change_event:
+                        logger.info(f"Detected change for service {service.id}: {change_event.change_type.value}")
             except Exception as e:
                 logger.error(f"Error processing diff for service {service.id}: {e}")
             

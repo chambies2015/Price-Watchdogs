@@ -74,7 +74,7 @@ export default function ServiceDetail({ service, recentChanges, recentSnapshots 
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Recent Changes</h2>
             <Link
-              href={`/services/${service.id}/changes`}
+              href={`/services/changes?id=${service.id}`}
               className="text-sm text-blue-600 hover:underline dark:text-blue-400"
             >
               View All
