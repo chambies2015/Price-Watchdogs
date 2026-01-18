@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import UserRegister, UserLogin, Token, ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest
+from app.schemas.auth import UserRegister, UserLogin, Token, ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest, DeleteAccountRequest
 from app.schemas.user import UserResponse
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.auth import get_current_user
@@ -15,6 +15,9 @@ import secrets
 from datetime import datetime, timedelta
 from app.models.password_reset_token import PasswordResetToken
 from app.services.email_service import send_password_reset_email
+from app.models.subscription import Subscription
+from app.services.stripe_service import cancel_subscription
+from sqlalchemy import delete
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -148,6 +151,31 @@ async def change_password(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
     user.password_hash = get_password_hash(payload.new_password)
+    await db.commit()
+    return {"success": True}
+
+
+@router.post("/delete-account")
+@limiter.limit("3/minute")
+async def delete_account(
+    request: Request,
+    payload: DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(payload.password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is incorrect")
+    subscription_result = await db.execute(
+        select(Subscription).where(Subscription.user_id == current_user.id)
+    )
+    subscription = subscription_result.scalar_one_or_none()
+    if subscription and subscription.stripe_subscription_id:
+        try:
+            await cancel_subscription(subscription.stripe_subscription_id, cancel_at_period_end=False)
+        except Exception:
+            pass
+    await db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == current_user.id))
+    await db.delete(current_user)
     await db.commit()
     return {"success": True}
 

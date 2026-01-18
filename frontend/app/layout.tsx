@@ -49,6 +49,8 @@ export default function RootLayout({
                 GitHub
               </a>
               <span className="footer-separator">•</span>
+              <a href="/privacy">Privacy</a>
+              <span className="footer-separator">•</span>
               <a href="mailto:pricewatchdogs@gmail.com">Support</a>
             </footer>
           </div>

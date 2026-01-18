@@ -123,6 +123,10 @@ export interface ChangePasswordRequest {
   new_password: string;
 }
 
+export interface DeleteAccountRequest {
+  password: string;
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;
@@ -193,6 +197,13 @@ export const authApi = {
 
   changePassword: async (data: ChangePasswordRequest): Promise<{ success: boolean }> => {
     return apiRequest<{ success: boolean }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteAccount: async (data: DeleteAccountRequest): Promise<{ success: boolean }> => {
+    return apiRequest<{ success: boolean }>('/auth/delete-account', {
       method: 'POST',
       body: JSON.stringify(data),
     });
