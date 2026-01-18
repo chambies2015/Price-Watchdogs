@@ -51,6 +51,8 @@ export default function RootLayout({
               <span className="footer-separator">•</span>
               <a href="/privacy">Privacy</a>
               <span className="footer-separator">•</span>
+              <a href="/status">Status</a>
+              <span className="footer-separator">•</span>
               <a href="mailto:pricewatchdogs@gmail.com">Support</a>
             </footer>
           </div>

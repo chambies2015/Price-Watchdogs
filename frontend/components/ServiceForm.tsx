@@ -42,6 +42,8 @@ export default function ServiceForm({
   const [confidenceThreshold, setConfidenceThreshold] = useState(
     initialData?.alert_confidence_threshold ?? 0.6
   );
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState(initialData?.slack_webhook_url || '');
+  const [discordWebhookUrl, setDiscordWebhookUrl] = useState(initialData?.discord_webhook_url || '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -122,6 +124,8 @@ export default function ServiceForm({
           is_active: isActive,
           alerts_enabled: alertsEnabled,
           alert_confidence_threshold: confidenceThreshold,
+          slack_webhook_url: slackWebhookUrl || null,
+          discord_webhook_url: discordWebhookUrl || null,
         });
       } else {
         await onSubmit({ name, url, check_frequency: checkFrequency });
@@ -301,24 +305,62 @@ export default function ServiceForm({
             </div>
             
             {alertsEnabled && (
-              <div>
-                <label htmlFor="confidence_threshold" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Confidence Threshold
-                </label>
-                <input
-                  id="confidence_threshold"
-                  type="number"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={confidenceThreshold}
-                  onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value) || 0.6)}
-                  className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
-                />
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  Only send alerts for changes with confidence above this threshold (0.0 - 1.0)
-                </p>
-              </div>
+              <>
+                <div>
+                  <label htmlFor="confidence_threshold" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Confidence Threshold
+                  </label>
+                  <input
+                    id="confidence_threshold"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={confidenceThreshold}
+                    onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value) || 0.6)}
+                    className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
+                  />
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    Only send alerts for changes with confidence above this threshold (0.0 - 1.0)
+                  </p>
+                </div>
+                {initialData && (
+                  <>
+                    <div>
+                      <label htmlFor="slack_webhook" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        Slack Webhook URL (optional)
+                      </label>
+                      <input
+                        id="slack_webhook"
+                        type="url"
+                        value={slackWebhookUrl}
+                        onChange={(e) => setSlackWebhookUrl(e.target.value)}
+                        placeholder="https://hooks.slack.com/services/..."
+                        className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
+                      />
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Receive alerts in Slack. Leave empty to disable.
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="discord_webhook" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        Discord Webhook URL (optional)
+                      </label>
+                      <input
+                        id="discord_webhook"
+                        type="url"
+                        value={discordWebhookUrl}
+                        onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+                        placeholder="https://discord.com/api/webhooks/..."
+                        className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
+                      />
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Receive alerts in Discord. Leave empty to disable.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </div>
         </>

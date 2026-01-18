@@ -144,6 +144,9 @@ export interface Service {
   is_active: boolean;
   alerts_enabled: boolean;
   alert_confidence_threshold: number;
+  slack_webhook_url: string | null;
+  discord_webhook_url: string | null;
+  alert_count_24h: number;
   created_at: string;
 }
 
@@ -160,6 +163,8 @@ export interface ServiceUpdate {
   is_active?: boolean;
   alerts_enabled?: boolean;
   alert_confidence_threshold?: number;
+  slack_webhook_url?: string | null;
+  discord_webhook_url?: string | null;
 }
 
 export const authApi = {

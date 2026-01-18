@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { dashboardApi, ServiceSummary } from '@/lib/api';
+import { dashboardApi, ServiceSummary, subscriptionsApi, Subscription } from '@/lib/api';
 import ServiceList from '@/components/ServiceList';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [summary, setSummary] = useState<{ services: ServiceSummary[]; total_services: number; active_services: number; recent_changes_count: number } | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -22,8 +23,12 @@ export default function DashboardPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await dashboardApi.getSummary();
-      setSummary(data);
+      const [dashboardData, subData] = await Promise.all([
+        dashboardApi.getSummary(),
+        subscriptionsApi.getCurrent().catch(() => null)
+      ]);
+      setSummary(dashboardData);
+      setSubscription(subData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
     } finally {
@@ -68,11 +73,39 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {subscription && subscription.plan_type === 'free' && subscription.service_limit !== null && (
+        <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900/40 dark:bg-yellow-900/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-yellow-900 dark:text-yellow-200">
+                {subscription.current_service_count}/{subscription.service_limit} services used
+              </p>
+              {subscription.current_service_count >= subscription.service_limit && (
+                <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
+                  You have reached your service limit. Upgrade to Pro for unlimited services.
+                </p>
+              )}
+            </div>
+            <Link
+              href="/pricing"
+              className="rounded-md bg-yellow-600 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-700"
+            >
+              Upgrade
+            </Link>
+          </div>
+        </div>
+      )}
+
       {summary && (
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <p className="text-sm text-zinc-600 dark:text-zinc-400">Total Services</p>
             <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">{summary.total_services}</p>
+            {subscription && subscription.service_limit !== null && (
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                Limit: {subscription.service_limit}
+              </p>
+            )}
           </div>
           <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <p className="text-sm text-zinc-600 dark:text-zinc-400">Active Services</p>
@@ -100,7 +133,10 @@ export default function DashboardPage() {
           actionHref="/services/new"
         />
       ) : summary ? (
-        <ServiceList services={summary.services} />
+        <ServiceList 
+          services={summary.services} 
+          showUpgradePrompt={subscription?.plan_type === 'free'}
+        />
       ) : null}
     </div>
   );

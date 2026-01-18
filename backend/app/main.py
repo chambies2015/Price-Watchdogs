@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from app.database import engine, Base
 from app.api import auth, services, snapshots, subscriptions, health, metrics
+from app.api.health import status_router
 from app.scheduler import start_scheduler, shutdown_scheduler
 from app.config import settings
 from app.middleware.rate_limit import limiter
@@ -74,6 +75,7 @@ app.include_router(services.dashboard_router)
 app.include_router(snapshots.router)
 app.include_router(subscriptions.router)
 app.include_router(health.router)
+app.include_router(status_router)
 app.include_router(metrics.router)
 
 @app.exception_handler(Exception)

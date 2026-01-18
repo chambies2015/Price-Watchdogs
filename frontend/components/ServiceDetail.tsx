@@ -66,6 +66,34 @@ export default function ServiceDetail({ service, recentChanges, recentSnapshots 
               </span>
             </div>
           )}
+          {service.alerts_enabled && (
+            <div>
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Alert Channels:</span>
+              <div className="ml-2 mt-1 flex flex-wrap gap-2">
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                  Email
+                </span>
+                {service.slack_webhook_url && (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
+                    Slack
+                  </span>
+                )}
+                {service.discord_webhook_url && (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400">
+                    Discord
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          {service.alerts_enabled && (
+            <div>
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Alerts (24h):</span>
+              <span className="ml-2 text-sm text-zinc-600 dark:text-zinc-400">
+                {service.alert_count_24h}/10
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

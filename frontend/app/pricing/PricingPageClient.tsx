@@ -36,7 +36,7 @@ export default function PricingPageClient() {
       features: [
         'Up to 3 services',
         'Daily or weekly checks',
-        'Email alerts',
+        'Email alerts only',
         'Change history',
         'Basic support'
       ],
@@ -51,7 +51,7 @@ export default function PricingPageClient() {
       features: [
         'Unlimited services',
         'Daily, weekly, or twice-daily checks',
-        'Email alerts',
+        'Email, Slack, and Discord alerts',
         'Change history',
         'Priority support',
         'Advanced analytics'
@@ -69,7 +69,7 @@ export default function PricingPageClient() {
       features: [
         'Unlimited services',
         'Daily, weekly, or twice-daily checks',
-        'Email alerts',
+        'Email, Slack, and Discord alerts',
         'Change history',
         'Priority support',
         'Advanced analytics'
@@ -163,6 +163,50 @@ export default function PricingPageClient() {
               </button>
             </div>
           ))}
+        </div>
+
+        <div className="mt-12">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">
+            Feature Comparison
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Feature</th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-white">Free</th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-white">Pro</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">Services</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">Up to 3</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">Unlimited</td>
+                </tr>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">Check Frequency</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">Daily, Weekly</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">Daily, Weekly, Twice Daily</td>
+                </tr>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">Alert Channels</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">Email</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">Email, Slack, Discord</td>
+                </tr>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">Change History</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">✓</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">✓</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">Support</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">Basic</td>
+                  <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">Priority</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="mt-12 text-center">

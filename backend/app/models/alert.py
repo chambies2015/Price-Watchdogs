@@ -9,6 +9,8 @@ from app.database import Base
 
 class AlertChannel(str, enum.Enum):
     email = "email"
+    slack = "slack"
+    discord = "discord"
 
 
 class Alert(Base):
