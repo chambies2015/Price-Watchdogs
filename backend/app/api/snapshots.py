@@ -20,8 +20,8 @@ router = APIRouter(prefix="/api/services", tags=["snapshots"])
 @router.get("/{service_id}/snapshots", response_model=List[SnapshotResponse])
 async def list_service_snapshots(
     service_id: UUID,
-    limit: int = 10,
     response: Response,
+    limit: int = 10,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -124,8 +124,8 @@ async def trigger_snapshot(
 @router.get("/{service_id}/changes", response_model=List[ChangeEventResponse])
 async def list_service_changes(
     service_id: UUID,
-    limit: int = 20,
     response: Response,
+    limit: int = 20,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
