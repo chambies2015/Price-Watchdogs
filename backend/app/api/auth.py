@@ -22,25 +22,27 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
 async def register(request: Request, user_data: UserRegister, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == user_data.email))
+    email = user_data.email.lower().strip()
+    _validate_password(user_data.password)
+    result = await db.execute(select(User).where(User.email == email))
     existing_user = result.scalar_one_or_none()
     
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Unable to register with provided credentials"
         )
     
     hashed_password = get_password_hash(user_data.password)
     new_user = User(
         id=uuid.uuid4(),
-        email=user_data.email,
+        email=email,
         password_hash=hashed_password
     )
     
     import os
     admin_email = os.getenv('ADMIN_EMAIL')
-    if admin_email and user_data.email == admin_email:
+    if admin_email and email == admin_email:
         new_user.is_admin = True
     
     db.add(new_user)
@@ -53,7 +55,8 @@ async def register(request: Request, user_data: UserRegister, db: AsyncSession =
 @router.post("/login", response_model=Token)
 @limiter.limit("10/minute")
 async def login(request: Request, user_data: UserLogin, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == user_data.email))
+    email = user_data.email.lower().strip()
+    result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
     
     if not user or not verify_password(user_data.password, user.password_hash):
@@ -86,6 +89,8 @@ def _hash_reset_token(token: str) -> str:
 def _validate_password(password: str) -> None:
     if len(password) < 8 or len(password) > 128:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must be between 8 and 128 characters")
+    if not any(c.isalpha() for c in password) or not any(c.isdigit() for c in password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must include at least one letter and one number")
 
 
 @router.post("/forgot-password")
@@ -152,6 +157,8 @@ async def debug_admin_status(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    if settings.environment == "production" or not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     import os
     result = await db.execute(select(User).where(User.id == current_user.id))
     fresh_user = result.scalar_one_or_none()

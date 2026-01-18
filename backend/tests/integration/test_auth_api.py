@@ -29,7 +29,16 @@ async def test_duplicate_email_registration(client: AsyncClient):
     )
     
     assert response.status_code == 400
-    assert "already registered" in response.json()["detail"].lower()
+    assert "unable to register" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_registration_requires_strong_password(client: AsyncClient):
+    response = await client.post(
+        "/api/auth/register",
+        json={"email": "weakpass@example.com", "password": "password"}
+    )
+    assert response.status_code == 400
 
 
 @pytest.mark.asyncio

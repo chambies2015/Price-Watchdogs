@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
+from urllib.parse import urlparse
 from uuid import UUID
 from app.database import get_db
 from app.models.user import User
@@ -24,6 +25,19 @@ router = APIRouter(prefix="/api/services", tags=["services"])
 dashboard_router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 __all__ = ["router", "dashboard_router"]
+
+
+def _normalize_url(value: str) -> str:
+    url = value.strip()
+    if not url or any(ch.isspace() for ch in url):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid URL")
+    parsed = urlparse(url)
+    if not parsed.scheme and not parsed.netloc:
+        url = f"https://{url}"
+        parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid URL")
+    return parsed.geturl()
 
 
 async def create_initial_snapshot_background(service_id: UUID):
@@ -78,12 +92,14 @@ async def create_service(
         sanitized_name = "Untitled Service"
     
     sanitized_url = bleach.clean(service_data.url, tags=[], strip=True)
+    sanitized_url = sanitized_url.replace("javascript:", "").strip()
+    normalized_url = _normalize_url(sanitized_url)
     
     new_service = Service(
         id=uuid.uuid4(),
         user_id=current_user.id,
         name=sanitized_name,
-        url=sanitized_url,
+        url=normalized_url,
         check_frequency=service_data.check_frequency,
         alerts_enabled=True,
         alert_confidence_threshold=0.6
@@ -165,6 +181,8 @@ async def update_service(
     
     if "url" in update_data:
         update_data["url"] = bleach.clean(update_data["url"], tags=[], strip=True)
+        update_data["url"] = update_data["url"].replace("javascript:", "").strip()
+        update_data["url"] = _normalize_url(update_data["url"])
     
     if "check_frequency" in update_data:
         await validate_check_frequency(db, current_user.id, update_data["check_frequency"])

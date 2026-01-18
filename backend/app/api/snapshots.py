@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
@@ -21,9 +21,11 @@ router = APIRouter(prefix="/api/services", tags=["snapshots"])
 async def list_service_snapshots(
     service_id: UUID,
     limit: int = 10,
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    limit = max(1, min(limit, 100))
     result = await db.execute(
         select(Service).where(
             Service.id == service_id,
@@ -39,6 +41,8 @@ async def list_service_snapshots(
         )
     
     snapshots = await get_service_snapshots(db, service_id, limit)
+    response.headers["Cache-Control"] = "private, max-age=30"
+    response.headers["Vary"] = "Authorization"
     return snapshots
 
 
@@ -121,9 +125,11 @@ async def trigger_snapshot(
 async def list_service_changes(
     service_id: UUID,
     limit: int = 20,
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    limit = max(1, min(limit, 100))
     result = await db.execute(
         select(Service).where(
             Service.id == service_id,
@@ -145,6 +151,8 @@ async def list_service_changes(
         .limit(limit)
     )
     changes = result.scalars().all()
+    response.headers["Cache-Control"] = "private, max-age=30"
+    response.headers["Vary"] = "Authorization"
     return changes
 
 

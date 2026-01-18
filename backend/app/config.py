@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     sentry_dsn: Optional[str] = None
     environment: str = "development"
     cors_origins: str = "*"
+    log_sample_rate: float = 0.1
 
     class Config:
         env_file = ".env"

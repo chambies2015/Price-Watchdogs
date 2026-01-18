@@ -1,4 +1,23 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+const DEFAULT_TIMEOUT_MS = 10000;
+const DEFAULT_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 300;
+
+export class ApiError extends Error {
+  status: number;
+  detail?: string;
+
+  constructor(message: string, status: number, detail?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 export async function apiRequest<T>(
   endpoint: string,
@@ -6,6 +25,8 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const method = options?.method?.toUpperCase() || 'GET';
+  const isIdempotent = method === 'GET' || method === 'HEAD';
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -15,22 +36,60 @@ export async function apiRequest<T>(
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(error.detail || `API error: ${response.statusText}`);
+  const retries = isIdempotent ? DEFAULT_RETRIES : 0;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    if (options?.signal) {
+      if (options.signal.aborted) {
+        controller.abort();
+      } else {
+        options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: response.statusText }));
+        if (isIdempotent && response.status >= 500 && attempt < retries) {
+          await sleep(RETRY_BASE_DELAY_MS * Math.pow(2, attempt));
+          continue;
+        }
+        throw new ApiError(error.detail || `API error: ${response.statusText}`, response.status, error.detail);
+      }
+
+      if (response.status === 204 || response.headers.get('content-length') === '0') {
+        return undefined as T;
+      }
+
+      return response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (isIdempotent && attempt < retries) {
+        await sleep(RETRY_BASE_DELAY_MS * Math.pow(2, attempt));
+        continue;
+      }
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      const err = error as Error;
+      if (err.name === 'AbortError') {
+        throw new ApiError('Request timed out', 408);
+      }
+      throw err;
+    }
   }
 
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
-    return undefined as T;
-  }
-
-  return response.json();
+  throw new ApiError('Request failed', 500);
 }
 
 export interface User {

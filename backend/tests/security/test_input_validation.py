@@ -24,7 +24,7 @@ async def test_sql_injection_in_service_name(client: AsyncClient, auth_headers: 
             headers=auth_headers
         )
         
-        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
+        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
         
         if response.status_code == 201:
             data = response.json()
@@ -51,7 +51,7 @@ async def test_sql_injection_in_url(client: AsyncClient, auth_headers: dict):
             headers=auth_headers
         )
         
-        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
+        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
 
 
 @pytest.mark.security
@@ -105,7 +105,7 @@ async def test_path_traversal_attempt(client: AsyncClient, auth_headers: dict):
             headers=auth_headers
         )
         
-        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
+        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
 
 
 @pytest.mark.security
@@ -129,7 +129,7 @@ async def test_command_injection_attempt(client: AsyncClient, auth_headers: dict
             headers=auth_headers
         )
         
-        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
+        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
 
 
 @pytest.mark.security
@@ -148,7 +148,7 @@ async def test_oversized_input_handling(client: AsyncClient, auth_headers: dict)
         headers=auth_headers
     )
     
-    assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_422_UNPROCESSABLE_ENTITY]
+    assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY]
 
 
 @pytest.mark.security
@@ -172,7 +172,7 @@ async def test_special_characters_handling(client: AsyncClient, auth_headers: di
             headers=auth_headers
         )
         
-        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
+        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
 
 
 @pytest.mark.security
@@ -194,5 +194,5 @@ async def test_null_byte_injection(client: AsyncClient, auth_headers: dict):
             headers=auth_headers
         )
         
-        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
+        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_403_FORBIDDEN]
 
