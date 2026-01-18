@@ -166,8 +166,8 @@ def extract_pricing_content(html: str, custom_selector: str = None) -> str:
     if selector_html and selector_text and price_pattern.search(selector_text):
         return selector_html
     
-    return soup.get_text()
-
+        return soup.get_text()
+    
 
 def extract_structured_pricing(text: str) -> str:
     price_re = r'(?:\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+)'
@@ -315,6 +315,7 @@ def extract_structured_pricing(text: str) -> str:
 
     pairs: list[tuple[str, str, str]] = []
     pair_patterns = [
+        re.compile(rf'(?P<plan>(?:Disney\+|Hulu|ESPN(?:\s+Select|\s+Unlimited)?|Max|HBO\s*Max)[A-Za-z0-9+,&/\-\s]{{2,220}}?\bBundle\b(?:\s+Premium|\s+Legacy|\s*\(.*?\))?)(?P<body>.{{0,2600}}?)\b(?P<label>Monthly|Annual|Yearly)\s*:\s*(?P<price>{price_re})', re.IGNORECASE),
         re.compile(rf'(?P<plan>Disney\+[A-Za-z0-9+,&/\-\s]{{2,160}}?\bBundle\b)(?P<body>.{{0,2600}}?)\bStarting\s+at\b\s*(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b', re.IGNORECASE),
         re.compile(rf'(?P<plan>\bPrime\s+(?:Monthly|Annual|for\s+Young\s+Adults|Access)\b)(?P<body>.{{0,140}}?)\s*(?P<price>{price_re})\s*(?:/|per)\s*(?P<unit>month|mo|year|yr)\b', re.IGNORECASE),
         re.compile(rf'(?P<plan>\bApple\s+TV\+\b)(?P<body>.{{0,220}}?)\s*(?P<price>{price_re})(?P<tail>.{{0,60}})', re.IGNORECASE),
@@ -334,6 +335,8 @@ def extract_structured_pricing(text: str) -> str:
             unit = ''
             if m.groupdict().get('unit'):
                 unit = ' / month' if m.group('unit').lower() in ('month', 'mo') else ' / year'
+            if not unit and m.groupdict().get('label'):
+                unit = ' / month' if m.group('label').lower() == 'monthly' else ' / year'
             if not unit:
                 unit = unit_for(tail)
             if plan:

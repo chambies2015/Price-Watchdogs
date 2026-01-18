@@ -183,6 +183,9 @@ async def send_alert_email(
                     "subject": subject,
                     "text": text_content,
                     "html": html_content,
+                    "o:tracking": "no",
+                    "o:tracking-clicks": "no",
+                    "o:tracking-opens": "no",
                 },
                 timeout=10.0,
             )
@@ -235,6 +238,9 @@ async def send_password_reset_email(to_email: str, reset_url: str) -> bool:
                     "subject": subject,
                     "text": text,
                     "html": html_content,
+                    "o:tracking": "no",
+                    "o:tracking-clicks": "no",
+                    "o:tracking-opens": "no",
                 },
                 timeout=10.0,
             )
