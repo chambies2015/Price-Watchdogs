@@ -25,6 +25,10 @@ async def test_dashboard_summary(client: AsyncClient, auth_headers: dict, db_ses
     assert isinstance(data["total_services"], int)
     assert isinstance(data["active_services"], int)
     assert isinstance(data["recent_changes_count"], int)
+    if data["services"]:
+        sample = data["services"][0]
+        assert "check_frequency" in sample
+        assert "next_check_at" in sample
 
 
 @pytest.mark.asyncio
@@ -92,6 +96,8 @@ async def test_dashboard_summary_with_changes(client: AsyncClient, auth_headers:
     assert service_summary is not None
     assert service_summary["last_change_event"] is not None
     assert service_summary["change_count"] >= 1
+    assert "check_frequency" in service_summary
+    assert "next_check_at" in service_summary
 
 
 @pytest.mark.asyncio
@@ -124,4 +130,5 @@ async def test_dashboard_summary_last_check_status(client: AsyncClient, auth_hea
     service_summary = next((s for s in data["services"] if s["id"] == str(service.id)), None)
     assert service_summary is not None
     assert service_summary["last_checked_at"] is not None
+    assert service_summary["next_check_at"] is not None
 

@@ -9,6 +9,7 @@ import ServiceList from '@/components/ServiceList';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import EmptyState from '@/components/EmptyState';
+import OnboardingTour from '@/components/OnboardingTour';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -41,6 +42,7 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <OnboardingTour />
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">Dashboard</h1>

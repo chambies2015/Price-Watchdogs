@@ -286,7 +286,9 @@ export interface ServiceSummary {
   name: string;
   url: string;
   is_active: boolean;
+  check_frequency: CheckFrequency;
   last_checked_at: string | null;
+  next_check_at: string | null;
   last_change_event: ChangeEventSummary | null;
   change_count: number;
   alerts_enabled: boolean;

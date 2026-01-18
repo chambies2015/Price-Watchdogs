@@ -80,3 +80,109 @@ body {
   padding-left: 18px;
   margin: 8px 0 0;
 }
+
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, #000 50%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+}
+
+.tour-card {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 20px 50px color-mix(in srgb, #000 30%, transparent);
+}
+
+.tour-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.tour-close:hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+.tour-step {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
+}
+
+.tour-title {
+  margin-top: 10px;
+  font-size: 20px;
+}
+
+.tour-body {
+  margin-top: 8px;
+  font-size: 14px;
+  color: color-mix(in srgb, var(--foreground) 80%, transparent);
+}
+
+.tour-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.tour-skip {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--foreground) 20%, transparent);
+  color: inherit;
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
+.tour-cta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tour-link {
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--background);
+  background: var(--foreground);
+}
+
+.tour-next {
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: none;
+  color: var(--background);
+  background: var(--foreground);
+}

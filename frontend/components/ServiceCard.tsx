@@ -25,6 +25,19 @@ function formatRelativeTime(dateString: string | null): string {
   return formatDate(dateString);
 }
 
+function formatNextCheck(dateString: string | null): string {
+  if (!dateString) return 'Pending';
+  const date = parseApiDate(dateString);
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  if (diffMs <= 0) return 'Any moment';
+  const diffMins = Math.ceil(diffMs / 60000);
+  if (diffMins < 60) return `In ${diffMins} minute${diffMins > 1 ? 's' : ''}`;
+  const diffHours = Math.ceil(diffMins / 60);
+  if (diffHours < 24) return `In ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+  return formatDate(dateString);
+}
+
 function getChangeTypeBadgeColor(changeType: ChangeType): string {
   const colors: Record<ChangeType, string> = {
     price_increase: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
@@ -51,7 +64,13 @@ function getChangeTypeLabel(changeType: ChangeType): string {
 
 export default function ServiceCard({ service }: ServiceCardProps) {
   const statusColor = service.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400';
-  const isStale = service.last_checked_at ? (Date.now() - parseApiDate(service.last_checked_at).getTime()) > 7 * 24 * 60 * 60 * 1000 : true;
+  const lastCheckedMs = service.last_checked_at ? Date.now() - parseApiDate(service.last_checked_at).getTime() : null;
+  const staleThresholdMs = service.check_frequency === 'weekly' ? 8 * 24 * 60 * 60 * 1000 : service.check_frequency === 'twice_daily' ? 16 * 60 * 60 * 1000 : 36 * 60 * 60 * 1000;
+  const isStale = lastCheckedMs === null ? true : lastCheckedMs > staleThresholdMs;
+  const healthLabel = service.is_active ? (isStale ? 'Stale' : 'Healthy') : 'Inactive';
+  const healthBadge = service.is_active
+    ? (isStale ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' : 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400')
+    : 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400';
   
   return (
     <Link href={`/services/detail?id=${service.id}`}>
@@ -68,6 +87,9 @@ export default function ServiceCard({ service }: ServiceCardProps) {
               <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor}`}>
                 {service.is_active ? 'Active' : 'Inactive'}
               </span>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${healthBadge}`}>
+                {healthLabel}
+              </span>
               {service.last_change_event && (
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getChangeTypeBadgeColor(service.last_change_event.change_type)}`}>
                   {getChangeTypeLabel(service.last_change_event.change_type)}
@@ -79,6 +101,9 @@ export default function ServiceCard({ service }: ServiceCardProps) {
         <div className="mt-3 space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
           <p>
             Last checked: <span className={isStale ? 'font-medium text-orange-600 dark:text-orange-400' : ''}>{formatRelativeTime(service.last_checked_at)}</span>
+          </p>
+          <p>
+            Next check: {formatNextCheck(service.next_check_at)}
           </p>
           {service.last_change_event && (
             <p>

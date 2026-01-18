@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
+from datetime import timedelta
 from urllib.parse import urlparse
 from uuid import UUID
 from app.database import get_db
@@ -325,6 +326,15 @@ async def get_dashboard_summary(
         latest_changes = {}
         change_counts = {}
     
+    def compute_next_check(last_checked_at, check_frequency):
+        if not last_checked_at:
+            return None
+        if check_frequency == CheckFrequency.weekly:
+            return last_checked_at + timedelta(days=7)
+        if check_frequency == CheckFrequency.twice_daily:
+            return last_checked_at + timedelta(hours=12)
+        return last_checked_at + timedelta(days=1)
+
     service_summaries = []
     total_services = len(services)
     active_services = sum(1 for s in services if s.is_active)
@@ -352,7 +362,9 @@ async def get_dashboard_summary(
             name=service.name,
             url=service.url,
             is_active=service.is_active,
+            check_frequency=service.check_frequency,
             last_checked_at=service.last_checked_at,
+            next_check_at=compute_next_check(service.last_checked_at, service.check_frequency),
             last_change_event=last_change_event,
             change_count=change_count,
             alerts_enabled=service.alerts_enabled
