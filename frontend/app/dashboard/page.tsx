@@ -13,7 +13,6 @@ import OnboardingTour from '@/components/OnboardingTour';
 import ServiceFilters from '@/components/ServiceFilters';
 import SavedViews from '@/components/SavedViews';
 import BulkImport from '@/components/BulkImport';
-import { useState } from 'react';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
