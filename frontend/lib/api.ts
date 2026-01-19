@@ -369,6 +369,17 @@ export const dashboardApi = {
   },
 };
 
+export interface PublicUserCount {
+  total_users: number;
+  updated_at: string;
+}
+
+export const publicApi = {
+  getUserCount: async (): Promise<PublicUserCount> => {
+    return apiRequest<PublicUserCount>('/status/users');
+  },
+};
+
 export const changesApi = {
   getChangeEvent: async (id: string): Promise<ChangeEventDetail> => {
     return apiRequest<ChangeEventDetail>(`/services/changes/${id}`);

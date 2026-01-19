@@ -1,19 +1,50 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import { publicApi } from '@/lib/api';
 
 export default function HomePageClient() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [userCount, setUserCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!loading && user) {
       router.push('/home');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (loading || user) {
+      return;
+    }
+
+    let active = true;
+
+    const loadUserCount = async () => {
+      try {
+        const data = await publicApi.getUserCount();
+        if (active) {
+          setUserCount(data.total_users);
+        }
+      } catch {
+        if (active) {
+          setUserCount(null);
+        }
+      }
+    };
+
+    loadUserCount();
+    const interval = setInterval(loadUserCount, 30000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [loading, user]);
 
   if (loading) {
     return (
@@ -106,6 +137,11 @@ export default function HomePageClient() {
             <p className="text-xl md:text-2xl text-zinc-600 dark:text-zinc-400 mb-8 max-w-3xl mx-auto">
               Monitor SaaS pricing pages and subscription changes. Know when prices or plans change before it costs you money.
             </p>
+            {userCount !== null && (
+              <div className="text-base md:text-lg text-zinc-600 dark:text-zinc-400 mb-8">
+                Join {userCount.toLocaleString()} users tracking pricing changes
+              </div>
+            )}
             <div className="flex gap-4 justify-center">
               {user ? (
                 <button

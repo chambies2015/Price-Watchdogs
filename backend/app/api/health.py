@@ -4,6 +4,7 @@ from app.database import AsyncSessionLocal
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.service import Service
+from app.models.user import User
 from datetime import datetime, timedelta
 from typing import Dict, Any, List
 
@@ -96,6 +97,17 @@ async def get_public_status() -> Dict[str, Any]:
             "success_rate_24h": round(success_rate * 100, 2),
             "scheduler_running": scheduler.running,
             "incidents": recent_incidents,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+
+
+@status_router.get("/users")
+async def get_public_user_count() -> Dict[str, Any]:
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(func.count(User.id)))
+        total_users = result.scalar() or 0
+        return {
+            "total_users": total_users,
             "updated_at": datetime.utcnow().isoformat()
         }
 
