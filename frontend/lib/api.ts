@@ -19,18 +19,21 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+type ApiRequestOptions = RequestInit & { timeoutMs?: number };
+
 export async function apiRequest<T>(
   endpoint: string,
-  options?: RequestInit
+  options?: ApiRequestOptions
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  const method = options?.method?.toUpperCase() || 'GET';
+  const { timeoutMs, ...fetchOptions } = options || {};
+  const method = fetchOptions.method?.toUpperCase() || 'GET';
   const isIdempotent = method === 'GET' || method === 'HEAD';
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options?.headers as Record<string, string>),
+    ...(fetchOptions.headers as Record<string, string>),
   };
   
   if (token) {
@@ -38,21 +41,22 @@ export async function apiRequest<T>(
   }
 
   const retries = isIdempotent ? DEFAULT_RETRIES : 0;
+  const requestTimeoutMs = timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-    if (options?.signal) {
-      if (options.signal.aborted) {
+    const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
+    if (fetchOptions.signal) {
+      if (fetchOptions.signal.aborted) {
         controller.abort();
       } else {
-        options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+        fetchOptions.signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
     }
 
     try {
       const response = await fetch(url, {
-        ...options,
+        ...fetchOptions,
         headers,
         signal: controller.signal,
       });
@@ -254,6 +258,7 @@ export const servicesApi = {
   triggerCheck: async (id: string): Promise<{ success: boolean; snapshot_id?: string; change_detected?: boolean; change_id?: string | null; error?: string }> => {
     return apiRequest(`/services/${id}/check`, {
       method: 'POST',
+      timeoutMs: 60000,
     });
   },
 
