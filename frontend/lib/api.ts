@@ -234,10 +234,6 @@ export const servicesApi = {
     });
   },
   
-  list: async (): Promise<Service[]> => {
-    return apiRequest<Service[]>('/services');
-  },
-  
   get: async (id: string): Promise<Service> => {
     return apiRequest<Service>(`/services/${id}`);
   },
