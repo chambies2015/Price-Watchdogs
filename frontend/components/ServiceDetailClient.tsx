@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { servicesApi, changesApi, snapshotsApi, Service, ServiceUpdate, ChangeEvent, Snapshot } from '@/lib/api';
+import { servicesApi, changesApi, snapshotsApi, Service, ServiceUpdate, ChangeEvent, Snapshot, exportsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import ServiceForm from '@/components/ServiceForm';
 import ServiceDetail from '@/components/ServiceDetail';
@@ -246,12 +246,55 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
           <div>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Change History</h2>
-              <Link
-                href={`/services/changes?id=${serviceId}`}
-                className="text-sm text-blue-600 hover:underline dark:text-blue-400"
-              >
-                View All
-              </Link>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const blob = await exportsApi.exportServiceChanges(serviceId, 'csv');
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `changes_${serviceId}_${new Date().toISOString().split('T')[0]}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to export changes');
+                    }
+                  }}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                >
+                  Export CSV
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const data = await exportsApi.exportServiceChanges(serviceId, 'json');
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `changes_${serviceId}_${new Date().toISOString().split('T')[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to export changes');
+                    }
+                  }}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                >
+                  Export JSON
+                </button>
+                <Link
+                  href={`/services/changes?id=${serviceId}`}
+                  className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  View All
+                </Link>
+              </div>
             </div>
             {recentChanges.length === 0 ? (
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-8 text-center dark:border-zinc-700 dark:bg-zinc-800">
@@ -285,7 +328,52 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
 
         {activeTab === 'snapshots' && (
           <div>
-            <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">Snapshots</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Snapshots</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const blob = await exportsApi.exportServiceSnapshots(serviceId, 'csv');
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `snapshots_${serviceId}_${new Date().toISOString().split('T')[0]}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to export snapshots');
+                    }
+                  }}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                >
+                  Export CSV
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const data = await exportsApi.exportServiceSnapshots(serviceId, 'json');
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `snapshots_${serviceId}_${new Date().toISOString().split('T')[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to export snapshots');
+                    }
+                  }}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                >
+                  Export JSON
+                </button>
+              </div>
+            </div>
             {recentSnapshots.length === 0 ? (
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-8 text-center dark:border-zinc-700 dark:bg-zinc-800">
                 <p className="text-zinc-600 dark:text-zinc-400">No snapshots yet.</p>

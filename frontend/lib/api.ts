@@ -134,6 +134,14 @@ export interface TokenResponse {
 
 export type CheckFrequency = 'daily' | 'weekly' | 'twice_daily';
 
+export interface Tag {
+  id: string;
+  user_id: string;
+  name: string;
+  color: string | null;
+  created_at: string;
+}
+
 export interface Service {
   id: string;
   user_id: string;
@@ -148,12 +156,14 @@ export interface Service {
   discord_webhook_url: string | null;
   alert_count_24h: number;
   created_at: string;
+  tags: Tag[];
 }
 
 export interface ServiceCreate {
   name: string;
   url: string;
   check_frequency?: CheckFrequency;
+  tag_ids?: string[];
 }
 
 export interface ServiceUpdate {
@@ -165,6 +175,7 @@ export interface ServiceUpdate {
   alert_confidence_threshold?: number;
   slack_webhook_url?: string | null;
   discord_webhook_url?: string | null;
+  tag_ids?: string[];
 }
 
 export const authApi = {
@@ -249,6 +260,44 @@ export const servicesApi = {
       method: 'POST',
     });
   },
+
+  list: async (tags?: string, isActive?: boolean, sortBy?: string, sortOrder?: string): Promise<Service[]> => {
+    const params = new URLSearchParams();
+    if (tags) params.append('tags', tags);
+    if (isActive !== undefined) params.append('is_active', String(isActive));
+    if (sortBy) params.append('sort_by', sortBy);
+    if (sortOrder) params.append('sort_order', sortOrder);
+    const query = params.toString();
+    return apiRequest<Service[]>(`/services${query ? `?${query}` : ''}`);
+  },
+
+  importFromCsv: async (file: File): Promise<{ created: number; failed: number; errors: string[]; services: Service[] }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${API_BASE_URL}/services/import`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new ApiError(error.detail || `API error: ${response.statusText}`, response.status, error.detail);
+    }
+    return response.json();
+  },
+
+  exportToCsv: async (): Promise<Blob> => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${API_BASE_URL}/services/export`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new ApiError(error.detail || `API error: ${response.statusText}`, response.status, error.detail);
+    }
+    return response.blob();
+  },
 };
 
 export type ChangeType = 'price_increase' | 'price_decrease' | 'new_plan_added' | 'plan_removed' | 'free_tier_removed' | 'unknown';
@@ -297,6 +346,7 @@ export interface ServiceSummary {
   last_change_event: ChangeEventSummary | null;
   change_count: number;
   alerts_enabled: boolean;
+  tags: Tag[];
 }
 
 export interface DashboardSummary {
@@ -307,8 +357,14 @@ export interface DashboardSummary {
 }
 
 export const dashboardApi = {
-  getSummary: async (): Promise<DashboardSummary> => {
-    return apiRequest<DashboardSummary>('/dashboard/summary');
+  getSummary: async (tags?: string, isActive?: boolean, sortBy?: string, sortOrder?: string): Promise<DashboardSummary> => {
+    const params = new URLSearchParams();
+    if (tags) params.append('tags', tags);
+    if (isActive !== undefined) params.append('is_active', String(isActive));
+    if (sortBy) params.append('sort_by', sortBy);
+    if (sortOrder) params.append('sort_order', sortOrder);
+    const query = params.toString();
+    return apiRequest<DashboardSummary>(`/dashboard/summary${query ? `?${query}` : ''}`);
   },
 };
 
@@ -384,6 +440,166 @@ export const subscriptionsApi = {
   
   getPayments: async (): Promise<Payment[]> => {
     return apiRequest<Payment[]>('/subscriptions/payments');
+  },
+};
+
+export type SortBy = 'name' | 'created_at' | 'last_checked_at';
+export type SortOrder = 'asc' | 'desc';
+
+export interface SavedView {
+  id: string;
+  user_id: string;
+  name: string;
+  filter_tags: string[] | null;
+  filter_active: boolean | null;
+  sort_by: SortBy;
+  sort_order: SortOrder;
+  created_at: string;
+}
+
+export interface SavedViewCreate {
+  name: string;
+  filter_tags?: string[] | null;
+  filter_active?: boolean | null;
+  sort_by?: SortBy;
+  sort_order?: SortOrder;
+}
+
+export interface SavedViewUpdate {
+  name?: string;
+  filter_tags?: string[] | null;
+  filter_active?: boolean | null;
+  sort_by?: SortBy;
+  sort_order?: SortOrder;
+}
+
+export const tagsApi = {
+  list: async (): Promise<Tag[]> => {
+    return apiRequest<Tag[]>('/tags');
+  },
+
+  create: async (data: { name: string; color?: string | null }): Promise<Tag> => {
+    return apiRequest<Tag>('/tags', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (id: string, data: { name?: string; color?: string | null }): Promise<Tag> => {
+    return apiRequest<Tag>(`/tags/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    return apiRequest<void>(`/tags/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  addToService: async (tagId: string, serviceId: string): Promise<void> => {
+    return apiRequest<void>(`/tags/${tagId}/services/${serviceId}`, {
+      method: 'POST',
+    });
+  },
+
+  removeFromService: async (tagId: string, serviceId: string): Promise<void> => {
+    return apiRequest<void>(`/tags/${tagId}/services/${serviceId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+export const savedViewsApi = {
+  list: async (): Promise<SavedView[]> => {
+    return apiRequest<SavedView[]>('/saved-views');
+  },
+
+  get: async (id: string): Promise<SavedView> => {
+    return apiRequest<SavedView>(`/saved-views/${id}`);
+  },
+
+  create: async (data: SavedViewCreate): Promise<SavedView> => {
+    return apiRequest<SavedView>('/saved-views', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (id: string, data: SavedViewUpdate): Promise<SavedView> => {
+    return apiRequest<SavedView>(`/saved-views/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    return apiRequest<void>(`/saved-views/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+export const exportsApi = {
+  exportServiceChanges: async (serviceId: string, format: 'csv' | 'json', params?: { limit?: number; start_date?: string; end_date?: string }): Promise<Blob | any> => {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', String(params.limit));
+    if (params?.start_date) queryParams.append('start_date', params.start_date);
+    if (params?.end_date) queryParams.append('end_date', params.end_date);
+    const query = queryParams.toString();
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${API_BASE_URL}/exports/services/${serviceId}/changes.${format}${query ? `?${query}` : ''}`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new ApiError(error.detail || `API error: ${response.statusText}`, response.status, error.detail);
+    }
+    if (format === 'json') {
+      return response.json();
+    }
+    return response.blob();
+  },
+
+  exportServiceSnapshots: async (serviceId: string, format: 'csv' | 'json', params?: { limit?: number; start_date?: string; end_date?: string }): Promise<Blob | any> => {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', String(params.limit));
+    if (params?.start_date) queryParams.append('start_date', params.start_date);
+    if (params?.end_date) queryParams.append('end_date', params.end_date);
+    const query = queryParams.toString();
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${API_BASE_URL}/exports/services/${serviceId}/snapshots.${format}${query ? `?${query}` : ''}`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new ApiError(error.detail || `API error: ${response.statusText}`, response.status, error.detail);
+    }
+    if (format === 'json') {
+      return response.json();
+    }
+    return response.blob();
+  },
+
+  exportAllChanges: async (format: 'csv' | 'json', params?: { limit?: number; start_date?: string; end_date?: string }): Promise<Blob | any> => {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', String(params.limit));
+    if (params?.start_date) queryParams.append('start_date', params.start_date);
+    if (params?.end_date) queryParams.append('end_date', params.end_date);
+    const query = queryParams.toString();
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${API_BASE_URL}/exports/all/changes.${format}${query ? `?${query}` : ''}`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new ApiError(error.detail || `API error: ${response.statusText}`, response.status, error.detail);
+    }
+    if (format === 'json') {
+      return response.json();
+    }
+    return response.blob();
   },
 };
 

@@ -95,6 +95,19 @@ export default function ServiceCard({ service }: ServiceCardProps) {
                   {getChangeTypeLabel(service.last_change_event.change_type)}
                 </span>
               )}
+              {service.tags && service.tags.length > 0 && (
+                <>
+                  {service.tags.map(tag => (
+                    <span
+                      key={tag.id}
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                      style={tag.color ? { backgroundColor: tag.color + '20', color: tag.color } : undefined}
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
+                </>
+              )}
             </div>
           </div>
         </div>

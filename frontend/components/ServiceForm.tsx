@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Service, ServiceCreate, ServiceUpdate, CheckFrequency, subscriptionsApi, Subscription } from '@/lib/api';
 import Link from 'next/link';
+import TagManager from './TagManager';
 
 interface ServiceFormProps {
   initialData?: Service;
@@ -44,6 +45,7 @@ export default function ServiceForm({
   );
   const [slackWebhookUrl, setSlackWebhookUrl] = useState(initialData?.slack_webhook_url || '');
   const [discordWebhookUrl, setDiscordWebhookUrl] = useState(initialData?.discord_webhook_url || '');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialData?.tags?.map(t => t.id) || []);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -126,9 +128,15 @@ export default function ServiceForm({
           alert_confidence_threshold: confidenceThreshold,
           slack_webhook_url: slackWebhookUrl || null,
           discord_webhook_url: discordWebhookUrl || null,
+          tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
         });
       } else {
-        await onSubmit({ name, url, check_frequency: checkFrequency });
+        await onSubmit({ 
+          name, 
+          url, 
+          check_frequency: checkFrequency,
+          tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save service');
@@ -365,6 +373,17 @@ export default function ServiceForm({
           </div>
         </>
       )}
+
+      <div>
+        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+          Tags (optional)
+        </label>
+        <TagManager
+          onTagSelect={setSelectedTagIds}
+          selectedTagIds={selectedTagIds}
+          showCreate={true}
+        />
+      </div>
       
       <div className="flex gap-3">
         <button

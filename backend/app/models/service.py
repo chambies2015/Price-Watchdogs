@@ -35,4 +35,5 @@ class Service(Base):
     user = relationship("User", back_populates="services")
     snapshots = relationship("Snapshot", back_populates="service", cascade="all, delete-orphan")
     change_events = relationship("ChangeEvent", back_populates="service", cascade="all, delete-orphan")
+    tags = relationship("Tag", secondary="service_tags", back_populates="services")
 

@@ -4,12 +4,16 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { dashboardApi, ServiceSummary, subscriptionsApi, Subscription } from '@/lib/api';
+import { dashboardApi, ServiceSummary, subscriptionsApi, Subscription, SortBy, SortOrder, SavedView, servicesApi } from '@/lib/api';
 import ServiceList from '@/components/ServiceList';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import EmptyState from '@/components/EmptyState';
 import OnboardingTour from '@/components/OnboardingTour';
+import ServiceFilters from '@/components/ServiceFilters';
+import SavedViews from '@/components/SavedViews';
+import BulkImport from '@/components/BulkImport';
+import { useState } from 'react';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -18,13 +22,21 @@ export default function DashboardPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [filters, setFilters] = useState<{ tags: string[]; isActive: boolean | null; sortBy: SortBy; sortOrder: SortOrder }>({
+    tags: [],
+    isActive: null,
+    sortBy: 'name',
+    sortOrder: 'asc',
+  });
+  const [showImport, setShowImport] = useState(false);
 
   const fetchDashboard = async () => {
     setLoading(true);
     setError('');
     try {
+      const tagsParam = filters.tags.length > 0 ? filters.tags.join(',') : undefined;
       const [dashboardData, subData] = await Promise.all([
-        dashboardApi.getSummary(),
+        dashboardApi.getSummary(tagsParam, filters.isActive ?? undefined, filters.sortBy, filters.sortOrder),
         subscriptionsApi.getCurrent().catch(() => null)
       ]);
       setSummary(dashboardData);
@@ -36,9 +48,34 @@ export default function DashboardPage() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const blob = await servicesApi.exportToCsv();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `services_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export services');
+    }
+  };
+
+  const handleViewSelect = (view: SavedView) => {
+    setFilters({
+      tags: view.filter_tags || [],
+      isActive: view.filter_active,
+      sortBy: view.sort_by,
+      sortOrder: view.sort_order,
+    });
+  };
+
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [filters.tags, filters.isActive, filters.sortBy, filters.sortOrder]);
 
   const handleLogout = () => {
     logout();
@@ -95,6 +132,16 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {showImport && (
+        <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
+          <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">Bulk Import Services</h2>
+          <BulkImport onImportComplete={() => { setShowImport(false); fetchDashboard(); }} />
+        </div>
+      )}
+
+      <SavedViews currentFilters={filters} onViewSelect={handleViewSelect} />
+      <ServiceFilters onFilterChange={setFilters} />
 
       {summary && (
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">

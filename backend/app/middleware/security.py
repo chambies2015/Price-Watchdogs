@@ -12,11 +12,15 @@ logger = logging.getLogger(__name__)
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
+        path = request.url.path
+        
         request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
         request.state.request_id = request_id
+        
         start = time.monotonic()
         response = await call_next(request)
         duration_ms = int((time.monotonic() - start) * 1000)
+        
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -35,10 +39,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "connect-src 'self' https: wss:; "
             "font-src 'self' data: https:"
         )
-        if request.url.path.startswith("/api"):
+        if path.startswith("/api"):
             if settings.environment != "production" or random.random() < settings.log_sample_rate:
                 logger.info(
-                    f"request_id={request_id} method={request.method} path={request.url.path} "
+                    f"request_id={request_id} method={request.method} path={path} "
                     f"status={response.status_code} duration_ms={duration_ms}"
                 )
         return response

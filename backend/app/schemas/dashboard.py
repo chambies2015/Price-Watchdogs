@@ -1,9 +1,10 @@
 from pydantic import BaseModel
 from datetime import datetime
 from uuid import UUID
-from typing import Optional
+from typing import Optional, List
 from app.models.change_event import ChangeType
 from app.models.service import CheckFrequency
+from app.schemas.tag import TagResponse
 
 
 class ChangeEventSummary(BaseModel):
@@ -28,6 +29,7 @@ class ServiceSummary(BaseModel):
     last_change_event: Optional[ChangeEventSummary]
     change_count: int
     alerts_enabled: bool
+    tags: List[TagResponse] = []
 
     class Config:
         from_attributes = True

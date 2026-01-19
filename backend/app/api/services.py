@@ -1,14 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query, UploadFile, File
+from fastapi.responses import Response
+from starlette.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from typing import List
-from datetime import timedelta
+from sqlalchemy import select, func, and_, or_
+from typing import List, Optional
+from datetime import timedelta, datetime
 from urllib.parse import urlparse
 from uuid import UUID
 from app.database import get_db
 from app.models.user import User
 from app.models.service import Service, CheckFrequency
 from app.models.change_event import ChangeEvent
+from app.models.tag import Tag, service_tags
+from app.models.saved_view import SortBy, SortOrder
 from app.schemas.service import ServiceCreate, ServiceUpdate, ServiceResponse
 from app.schemas.dashboard import DashboardSummaryResponse, ServiceSummary, ChangeEventSummary
 from app.core.auth import get_current_user
@@ -16,6 +20,12 @@ from app.services.subscription_service import (
     enforce_service_limit,
     validate_check_frequency
 )
+from app.services.csv_service import (
+    parse_services_csv,
+    validate_service_row,
+    generate_services_csv
+)
+from app.middleware.rate_limit import limiter
 import uuid
 import bleach
 import logging
@@ -106,9 +116,19 @@ async def create_service(
         alert_confidence_threshold=0.6
     )
     
+    if service_data.tag_ids:
+        tag_result = await db.execute(
+            select(Tag).where(
+                Tag.id.in_(service_data.tag_ids),
+                Tag.user_id == current_user.id
+            )
+        )
+        tags = tag_result.scalars().all()
+        new_service.tags = tags
+    
     db.add(new_service)
     await db.commit()
-    await db.refresh(new_service)
+    await db.refresh(new_service, ["tags"])
     
     background_tasks.add_task(create_initial_snapshot_background, new_service.id)
     logger.info(f"Service {new_service.id} created, initial snapshot queued")
@@ -118,14 +138,157 @@ async def create_service(
 
 @router.get("", response_model=List[ServiceResponse])
 async def list_services(
+    tags: Optional[str] = Query(None, description="Comma-separated tag IDs"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    sort_by: Optional[str] = Query("name", description="Sort by: name, created_at, last_checked_at"),
+    sort_order: Optional[str] = Query("asc", description="Sort order: asc, desc"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(Service).where(Service.user_id == current_user.id)
+    
+    if tags:
+        tag_ids = [UUID(t.strip()) for t in tags.split(",") if t.strip()]
+        if tag_ids:
+            query = query.join(service_tags).join(Tag).where(
+                and_(
+                    Tag.id.in_(tag_ids),
+                    Tag.user_id == current_user.id
+                )
+            ).distinct()
+    
+    if is_active is not None:
+        query = query.where(Service.is_active == is_active)
+    
+    if sort_by == "created_at":
+        order_col = Service.created_at
+    elif sort_by == "last_checked_at":
+        order_col = Service.last_checked_at
+    else:
+        order_col = Service.name
+    
+    if sort_order == "desc":
+        query = query.order_by(order_col.desc())
+    else:
+        query = query.order_by(order_col.asc())
+    
+    result = await db.execute(query)
+    services = result.scalars().unique().all()
+    
+    for service in services:
+        await db.refresh(service, ["tags"])
+    
+    return services
+
+
+@router.get("/export")
+async def export_services(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(
-        select(Service).where(Service.user_id == current_user.id)
+        select(Service).where(Service.user_id == current_user.id).order_by(Service.created_at.desc())
     )
     services = result.scalars().all()
-    return services
+    
+    csv_content = generate_services_csv(services)
+    
+    return Response(
+        content=csv_content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f"attachment; filename=services_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        }
+    )
+
+
+@router.post("/import", status_code=status.HTTP_201_CREATED)
+async def import_services(
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be a CSV file"
+        )
+    
+    content = await file.read()
+    try:
+        csv_content = content.decode('utf-8')
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be UTF-8 encoded"
+        )
+    
+    rows = parse_services_csv(csv_content)
+    if not rows:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV file is empty or invalid"
+        )
+    
+    created_services = []
+    errors = []
+    
+    for idx, row in enumerate(rows, start=2):
+        is_valid, error_msg = validate_service_row(row, idx)
+        if not is_valid:
+            errors.append(error_msg)
+            continue
+        
+        try:
+            await enforce_service_limit(db, current_user.id)
+            
+            check_freq_str = row.get("check_frequency", "daily").strip().lower()
+            check_frequency = CheckFrequency.daily
+            if check_freq_str == "weekly":
+                check_frequency = CheckFrequency.weekly
+            elif check_freq_str == "twice_daily":
+                check_frequency = CheckFrequency.twice_daily
+            
+            await validate_check_frequency(db, current_user.id, check_frequency)
+            
+            url = row["url"].strip()
+            if not url.startswith(("http://", "https://")):
+                url = f"https://{url}"
+            
+            normalized_url = _normalize_url(url)
+            
+            is_active = row.get("is_active", "true").strip().lower() in ["true", "1", "yes"]
+            
+            new_service = Service(
+                id=uuid.uuid4(),
+                user_id=current_user.id,
+                name=row["name"].strip(),
+                url=normalized_url,
+                check_frequency=check_frequency,
+                is_active=is_active,
+                alerts_enabled=True,
+                alert_confidence_threshold=0.6
+            )
+            
+            db.add(new_service)
+            await db.commit()
+            await db.refresh(new_service, ["tags"])
+            
+            background_tasks.add_task(create_initial_snapshot_background, new_service.id)
+            
+            created_services.append(new_service)
+        except HTTPException as e:
+            errors.append(f"Row {idx}: {e.detail}")
+        except Exception as e:
+            errors.append(f"Row {idx}: {str(e)}")
+    
+    return {
+        "created": len(created_services),
+        "failed": len(errors),
+        "errors": errors,
+        "services": [ServiceResponse.model_validate(s) for s in created_services]
+    }
 
 
 @router.get("/{service_id}", response_model=ServiceResponse)
@@ -148,6 +311,7 @@ async def get_service(
             detail="Service not found"
         )
     
+    await db.refresh(service, ["tags"])
     return service
 
 
@@ -188,11 +352,23 @@ async def update_service(
     if "check_frequency" in update_data:
         await validate_check_frequency(db, current_user.id, update_data["check_frequency"])
     
+    tag_ids = update_data.pop("tag_ids", None)
+    
     for field, value in update_data.items():
         setattr(service, field, value)
     
+    if tag_ids is not None:
+        tag_result = await db.execute(
+            select(Tag).where(
+                Tag.id.in_(tag_ids),
+                Tag.user_id == current_user.id
+            )
+        )
+        tags = tag_result.scalars().all()
+        service.tags = tags
+    
     await db.commit()
-    await db.refresh(service)
+    await db.refresh(service, ["tags"])
     
     return service
 
@@ -277,13 +453,42 @@ async def trigger_manual_check(
 
 @dashboard_router.get("/summary", response_model=DashboardSummaryResponse)
 async def get_dashboard_summary(
+    tags: Optional[str] = Query(None, description="Comma-separated tag IDs"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    sort_by: Optional[str] = Query("name", description="Sort by: name, created_at, last_checked_at"),
+    sort_order: Optional[str] = Query("asc", description="Sort order: asc, desc"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(
-        select(Service).where(Service.user_id == current_user.id)
-    )
-    services = result.scalars().all()
+    query = select(Service).where(Service.user_id == current_user.id)
+    
+    if tags:
+        tag_ids = [UUID(t.strip()) for t in tags.split(",") if t.strip()]
+        if tag_ids:
+            query = query.join(service_tags).join(Tag).where(
+                and_(
+                    Tag.id.in_(tag_ids),
+                    Tag.user_id == current_user.id
+                )
+            ).distinct()
+    
+    if is_active is not None:
+        query = query.where(Service.is_active == is_active)
+    
+    if sort_by == "created_at":
+        order_col = Service.created_at
+    elif sort_by == "last_checked_at":
+        order_col = Service.last_checked_at
+    else:
+        order_col = Service.name
+    
+    if sort_order == "desc":
+        query = query.order_by(order_col.desc())
+    else:
+        query = query.order_by(order_col.asc())
+    
+    result = await db.execute(query)
+    services = result.scalars().unique().all()
     
     service_ids = [s.id for s in services]
     
@@ -341,6 +546,7 @@ async def get_dashboard_summary(
     recent_changes_count = 0
     
     for service in services:
+        await db.refresh(service, ["tags"])
         latest_change_row = latest_changes.get(service.id)
         
         if latest_change_row:
@@ -367,7 +573,8 @@ async def get_dashboard_summary(
             next_check_at=compute_next_check(service.last_checked_at, service.check_frequency),
             last_change_event=last_change_event,
             change_count=change_count,
-            alerts_enabled=service.alerts_enabled
+            alerts_enabled=service.alerts_enabled,
+            tags=service.tags
         ))
     
     return DashboardSummaryResponse(
@@ -376,4 +583,6 @@ async def get_dashboard_summary(
         active_services=active_services,
         recent_changes_count=recent_changes_count
     )
+
+
 
