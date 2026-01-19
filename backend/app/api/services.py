@@ -3,6 +3,7 @@ from fastapi.responses import Response
 from starlette.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
+from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import timedelta, datetime
 from urllib.parse import urlparse
@@ -298,7 +299,9 @@ async def get_service(
     db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(
-        select(Service).where(
+        select(Service)
+        .options(selectinload(Service.tags))
+        .where(
             Service.id == service_id,
             Service.user_id == current_user.id
         )
@@ -323,7 +326,9 @@ async def update_service(
     db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(
-        select(Service).where(
+        select(Service)
+        .options(selectinload(Service.tags))
+        .where(
             Service.id == service_id,
             Service.user_id == current_user.id
         )
