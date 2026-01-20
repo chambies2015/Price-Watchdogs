@@ -1,35 +1,30 @@
-import { MetadataRoute } from 'next'
+import { MetadataRoute } from 'next';
 
-export const dynamic = 'force-static'
+export const dynamic = 'force-static';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://pricewatchdogs.com';
+  const now = new Date();
   
   return [
     {
       url: baseUrl,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'weekly',
       priority: 1,
     },
     {
       url: `${baseUrl}/pricing`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/login`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
+      priority: 0.9,
     },
     {
       url: `${baseUrl}/register`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'monthly',
-      priority: 0.7,
+      priority: 0.8,
     },
-  ]
+  ];
 }
 

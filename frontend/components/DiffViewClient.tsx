@@ -6,6 +6,7 @@ import { changesApi, ChangeEventDetail, ChangeType } from '@/lib/api';
 import DiffView from '@/components/DiffView';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
+import { formatDateTime } from '@/lib/datetime';
 
 function getChangeTypeLabel(changeType: ChangeType): string {
   const labels: Record<ChangeType, string> = {
@@ -105,7 +106,7 @@ export default function DiffViewClient({ serviceId, changeId }: { serviceId: str
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Summary</h2>
         <p className="mt-2 text-zinc-700 dark:text-zinc-300">{changeEvent.summary}</p>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Detected: {new Date(changeEvent.created_at).toLocaleString()}
+          Detected: {formatDateTime(changeEvent.created_at)}
         </p>
       </div>
 

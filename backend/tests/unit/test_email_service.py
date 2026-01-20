@@ -119,6 +119,7 @@ async def test_send_alert_email_success(
     mock_settings.mailgun_api_key = "test-api-key"
     mock_settings.mailgun_domain = "test-domain.com"
     mock_settings.mailgun_from_email = "noreply@test.com"
+    mock_settings.mailgun_api_base_url = "https://api.mailgun.net"
     mock_settings.frontend_base_url = "http://localhost:3000"
     
     mock_response = MagicMock()
@@ -183,6 +184,7 @@ async def test_send_alert_email_api_error(
     mock_settings.mailgun_api_key = "test-api-key"
     mock_settings.mailgun_domain = "test-domain.com"
     mock_settings.mailgun_from_email = "noreply@test.com"
+    mock_settings.mailgun_api_base_url = "https://api.mailgun.net"
     mock_settings.frontend_base_url = "http://localhost:3000"
     
     mock_response = MagicMock()
@@ -223,6 +225,7 @@ async def test_send_alert_email_timeout(
     mock_settings.mailgun_api_key = "test-api-key"
     mock_settings.mailgun_domain = "test-domain.com"
     mock_settings.mailgun_from_email = "noreply@test.com"
+    mock_settings.mailgun_api_base_url = "https://api.mailgun.net"
     mock_settings.frontend_base_url = "http://localhost:3000"
     
     mock_client = AsyncMock()

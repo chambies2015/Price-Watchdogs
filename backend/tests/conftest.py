@@ -15,7 +15,7 @@ os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
 os.environ["ENVIRONMENT"] = "test"
 
 from app.database import Base, get_db
-from app.models import User, Service, Snapshot, ChangeEvent, Alert, Subscription, Payment
+from app.models import User, Service, Snapshot, ChangeEvent, Alert, Subscription, Payment, Tag, SavedView
 from app.main import app
 from app.scheduler import scheduler, start_scheduler, shutdown_scheduler
 from app.core.security import create_access_token
@@ -150,7 +150,13 @@ def mock_fetch_page():
     async def mock_fetch(*args, **kwargs):
         return mock_html
     
+    def noop_decorator(limit_string):
+        def decorator(func):
+            return func
+        return decorator
+    
     with patch('app.services.fetcher.fetch_page', new=mock_fetch):
         with patch('app.services.snapshot_service.fetch_page', new=mock_fetch):
-            yield
+            with patch('app.middleware.rate_limit.limiter.limit', noop_decorator):
+                yield
 

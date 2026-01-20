@@ -15,159 +15,197 @@ class FetchError(Exception):
 
 async def _fetch_page_playwright(url: str) -> str:
     logger.info("Launching Playwright browser...")
-    browser = None
-    try:
-        async with async_playwright() as p:
-            logger.info("Launching Chromium...")
-            browser = await p.chromium.launch(
-                headless=True,
-                timeout=45000,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-software-rasterizer',
-                    '--disable-extensions',
-                    '--disable-background-networking',
-                    '--single-process',
-                ]
-            )
-            logger.info("Browser launched successfully")
-            
-            context = await browser.new_context(
-                user_agent=USER_AGENT,
-                viewport={'width': 1920, 'height': 1080},
-                locale='en-US',
-                timezone_id='America/New_York',
-                extra_http_headers={
-                    'Accept-Language': 'en-US,en;q=0.9',
-                }
-            )
-            logger.info("Browser context created")
-            
-            try:
-                logger.info("Adding anti-bot detection scripts...")
-                await context.add_init_script(r"""
-                    Object.defineProperty(navigator, 'webdriver', {
-                        get: () => undefined
-                    });
-                    window.chrome = {
-                        runtime: {}
-                    };
-                    Object.defineProperty(navigator, 'plugins', {
-                        get: () => [1, 2, 3, 4, 5]
-                    });
-                """)
-                logger.info("Anti-bot scripts added")
-            except Exception as e:
-                logger.warning(f"Failed to add init script, continuing: {str(e)}")
-            
-            logger.info("Creating new page...")
-            page = await context.new_page()
+    async with async_playwright() as p:
+        logger.info("Launching Chromium...")
+        browser = await p.chromium.launch(
+            headless=True,
+            timeout=45000,
+            args=[
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--disable-software-rasterizer',
+                '--disable-extensions',
+            ]
+        )
+        logger.info("Browser launched successfully")
+        
+        context = await browser.new_context(
+            user_agent=USER_AGENT,
+            viewport={'width': 1920, 'height': 1080},
+            locale='en-US',
+            timezone_id='America/New_York',
+            extra_http_headers={
+                'Accept-Language': 'en-US,en;q=0.9',
+            }
+        )
+        logger.info("Browser context created")
+        
+        try:
+            logger.info("Adding anti-bot detection scripts...")
+            await context.add_init_script(r"""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                window.chrome = {
+                    runtime: {}
+                };
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+            """)
+            logger.info("Anti-bot scripts added")
+        except Exception as e:
+            logger.warning(f"Failed to add init script: {str(e)}")
+        
+        logger.info("Creating new page...")
+        try:
+            page = await asyncio.wait_for(context.new_page(), timeout=15)
             logger.info("Page created successfully")
-            
+        except asyncio.TimeoutError:
+            logger.error("Page creation timed out after 15s")
+            raise
+        
+        logger.info(f"Navigating to {url}...")
+        try:
+            await asyncio.wait_for(
+                page.goto(url, wait_until='domcontentloaded', timeout=30000),
+                timeout=35
+            )
+            logger.info("Page loaded (domcontentloaded)")
+        except asyncio.TimeoutError:
+            logger.error("Navigation timed out after 35s")
+            raise
+        
+        logger.info("Waiting for JavaScript execution...")
+        await page.wait_for_timeout(5000)
+        
+        logger.info("Waiting for pricing content to appear...")
+        try:
+            await page.wait_for_selector(
+                '[class*="pric"], [class*="plan"], [class*="tier"], [class*="choic"], [class*="bundle"], [id*="pric"], [id*="plan"], [id*="tier"]',
+                timeout=10000,
+                state='attached'
+            )
+            logger.info("Pricing-related elements found")
+            await page.wait_for_timeout(2000)
+        except:
+            logger.warning("No pricing selectors found, waiting for React render...")
+            await page.wait_for_timeout(8000)
+        
+        logger.info("Scrolling page to trigger lazy-loaded content")
+        try:
+            await page.evaluate('window.scrollTo({top: document.body.scrollHeight})')
+            await page.wait_for_timeout(1000)
+            await page.evaluate('window.scrollTo({top: 0})')
+            await page.wait_for_timeout(1000)
+            logger.info("Scrolling complete")
+        except Exception as e:
+            logger.warning(f"Scrolling failed: {str(e)}")
+
+        logger.info("Waiting for currency patterns to appear in page text...")
+        try:
+            await page.wait_for_function(
+                r"""() => {
+                    const t = document.body && document.body.innerText ? document.body.innerText : "";
+                    const pricePattern = /\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+/g;
+                    const matches = t.match(pricePattern) || [];
+                    return matches.length >= 1;
+                }""",
+                timeout=20000
+            )
+            logger.info("✓ Currency pattern detected in DOM text")
+        except Exception:
+            logger.warning("No currency pattern detected within 20s; waiting for network idle and retrying")
             try:
-                logger.info(f"Navigating to {url}...")
-                await page.goto(url, wait_until='domcontentloaded', timeout=30000)
-                logger.info("Page loaded (domcontentloaded)")
-                
-                logger.info("Waiting for JavaScript execution...")
-                await page.wait_for_timeout(5000)
-                
-                logger.info("Waiting for pricing content to appear...")
+                await page.wait_for_load_state('networkidle', timeout=10000)
+            except Exception:
+                pass
+            if "paramountplus.com" in (url or "").lower():
                 try:
-                    await page.wait_for_selector(
-                        '[class*="pric"], [class*="plan"], [class*="tier"], [id*="pric"], [id*="plan"], [id*="tier"]',
-                        timeout=8000,
-                        state='attached'
+                    await page.wait_for_function(
+                        r"""() => {
+                            const t = document.body && document.body.innerText ? document.body.innerText : "";
+                            return /Paramount\+\s+(Essential|Premium)/i.test(t);
+                        }""",
+                        timeout=15000
                     )
-                    logger.info("Pricing-related elements found")
-                    await page.wait_for_timeout(2000)
-                except:
-                    logger.warning("No pricing selectors found, waiting longer...")
-                    await page.wait_for_timeout(5000)
-                
-                logger.info(f"Scrolling page to trigger lazy-loaded content")
-                
-                try:
-                    initial_height = await page.evaluate('document.body.scrollHeight')
-                    logger.info(f"Initial page height: {initial_height}px")
-                    
-                    await page.evaluate('window.scrollTo({top: document.body.scrollHeight / 2})')
-                    await page.wait_for_timeout(1500)
-                    
-                    await page.evaluate('window.scrollTo({top: document.body.scrollHeight})')
-                    await page.wait_for_timeout(1500)
-                    
-                    await page.evaluate('window.scrollTo({top: 0})')
-                    await page.wait_for_timeout(1500)
-                    
-                    final_height = await page.evaluate('document.body.scrollHeight')
-                    logger.info(f"Final page height: {final_height}px")
-                except Exception as e:
-                    logger.warning(f"Scrolling failed, but continuing: {str(e)}")
-                
-                try:
-                    price_info = await page.evaluate(r"""() => {
-                        const text = document.body.innerText;
+                    logger.info("✓ Paramount+ plan labels detected in DOM text")
+                except Exception:
+                    logger.warning("No Paramount+ plan labels detected within 15s")
+            try:
+                await page.wait_for_function(
+                    r"""() => {
+                        const t = document.body && document.body.innerText ? document.body.innerText : "";
                         const pricePattern = /\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+/g;
-                        const matches = text.match(pricePattern);
-                        
-                        const textLength = text.length;
-                        const textSample = text.substring(0, 500).replace(/\s+/g, ' ').trim();
-                        
-                        return {
-                            found: matches && matches.length > 0,
-                            count: matches ? matches.length : 0,
-                            sample: matches ? matches.slice(0, 5).join(', ') : '',
-                            textLength: textLength,
-                            textSample: textSample
-                        };
-                    }""")
-                    
-                    if price_info['found']:
-                        logger.info(f"✓ Found {price_info['count']} prices on {url}: {price_info['sample']}")
-                    else:
-                        logger.warning(f"✗ No pricing patterns found on {url}")
-                    
-                    logger.info(f"Page text length: {price_info['textLength']} chars")
-                    logger.info(f"Text sample: {price_info['textSample'][:200]}")
-                    
-                except Exception as e:
-                    logger.warning(f"Error checking for prices on {url}: {str(e)}")
+                        const matches = t.match(pricePattern) || [];
+                        return matches.length >= 1;
+                    }""",
+                    timeout=15000
+                )
+                logger.info("✓ Currency pattern detected after retry")
+            except Exception:
+                logger.warning("Still no currency pattern detected; snapshot may not include prices")
+        
+        page_has_currency = False
+        try:
+            price_info = await page.evaluate(r"""() => {
+                const text = document.body.innerText;
+                const pricePattern = /\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+/g;
+                const matches = text.match(pricePattern);
                 
-                logger.info("Final wait before capturing content...")
-                await page.wait_for_timeout(2000)
+                const textLength = text.length;
+                const textSample = text.substring(0, 500).replace(/\s+/g, ' ').trim();
                 
-                content = await page.content()
-                logger.info(f"✓ Captured HTML content: {len(content)} bytes")
-                
-                return content
-            finally:
-                try:
-                    if browser:
-                        await browser.close()
-                        logger.info("Browser closed")
-                except Exception as e:
-                    logger.warning(f"Error closing browser: {str(e)}")
-    except asyncio.TimeoutError as e:
-        logger.error(f"Browser setup timed out: {str(e)}")
-        if browser:
+                return {
+                    found: matches && matches.length > 0,
+                    count: matches ? matches.length : 0,
+                    sample: matches ? matches.slice(0, 5).join(', ') : '',
+                    textLength: textLength,
+                    textSample: textSample
+                };
+            }""")
+            
+            if price_info['found']:
+                page_has_currency = True
+                logger.info(f"✓ Found {price_info['count']} prices: {price_info['sample']}")
+            else:
+                logger.warning(f"✗ No pricing patterns found")
+            
+            logger.info(f"Page text: {price_info['textLength']} chars")
+            logger.info(f"Sample: {price_info['textSample'][:200]}")
+            
+        except Exception as e:
+            logger.warning(f"Error checking prices: {str(e)}")
+        
+        logger.info("Capturing content...")
+        await page.wait_for_timeout(1000)
+        content = await page.content()
+        if not page_has_currency:
             try:
-                await browser.close()
-            except:
+                frames = [f for f in page.frames if f != page.main_frame]
+                if frames:
+                    combined = [content]
+                    for f in frames[:8]:
+                        try:
+                            frame_text = await f.evaluate(
+                                r"""() => document.body && document.body.innerText ? document.body.innerText : """""
+                            )
+                            if frame_text and re.search(r'\$\d+(?:\.\d{2})?|\€\d+(?:\.\d{2})?|\£\d+(?:\.\d{2})?|\¥\d+', frame_text):
+                                frame_html = await f.content()
+                                combined.append(frame_html)
+                        except Exception:
+                            continue
+                    if len(combined) > 1:
+                        content = "\n".join(combined)
+                        logger.info("✓ Appended iframe content containing currency patterns")
+            except Exception:
                 pass
-        raise
-    except Exception as e:
-        logger.error(f"Playwright error: {type(e).__name__}: {str(e)}")
-        if browser:
-            try:
-                await browser.close()
-            except:
-                pass
-        raise
+        logger.info(f"✓ Captured {len(content)} bytes")
+        
+        return content
 
 
 async def fetch_page(url: str, timeout: int = 120) -> str:

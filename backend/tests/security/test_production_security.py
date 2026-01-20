@@ -101,6 +101,21 @@ async def test_sensitive_headers_not_exposed(client: AsyncClient):
 
 @pytest.mark.security
 @pytest.mark.asyncio
+async def test_security_headers_present(client: AsyncClient):
+    response = await client.get("/health")
+    headers = response.headers
+    assert "x-content-type-options" in headers
+    assert "x-frame-options" in headers
+    assert "referrer-policy" in headers
+    assert "permissions-policy" in headers
+    assert "content-security-policy" in headers
+    assert "x-request-id" in headers
+    if settings.environment == "production":
+        assert "strict-transport-security" in headers
+
+
+@pytest.mark.security
+@pytest.mark.asyncio
 async def test_error_messages_dont_expose_details(client: AsyncClient):
     response = await client.get(f"/api/services/{'invalid-uuid'}")
     

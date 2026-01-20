@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
@@ -20,10 +20,12 @@ router = APIRouter(prefix="/api/services", tags=["snapshots"])
 @router.get("/{service_id}/snapshots", response_model=List[SnapshotResponse])
 async def list_service_snapshots(
     service_id: UUID,
+    response: Response,
     limit: int = 10,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    limit = max(1, min(limit, 100))
     result = await db.execute(
         select(Service).where(
             Service.id == service_id,
@@ -39,6 +41,8 @@ async def list_service_snapshots(
         )
     
     snapshots = await get_service_snapshots(db, service_id, limit)
+    response.headers["Cache-Control"] = "private, max-age=30"
+    response.headers["Vary"] = "Authorization"
     return snapshots
 
 
@@ -101,10 +105,11 @@ async def trigger_snapshot(
         )
     
     try:
-        snapshot = await create_snapshot(db, service)
+        snapshot, created_new = await create_snapshot(db, service)
         
         try:
-            await process_new_snapshot(db, snapshot)
+            if created_new:
+                await process_new_snapshot(db, snapshot)
         except Exception as e:
             pass
         
@@ -119,10 +124,12 @@ async def trigger_snapshot(
 @router.get("/{service_id}/changes", response_model=List[ChangeEventResponse])
 async def list_service_changes(
     service_id: UUID,
+    response: Response,
     limit: int = 20,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    limit = max(1, min(limit, 100))
     result = await db.execute(
         select(Service).where(
             Service.id == service_id,
@@ -144,6 +151,8 @@ async def list_service_changes(
         .limit(limit)
     )
     changes = result.scalars().all()
+    response.headers["Cache-Control"] = "private, max-age=30"
+    response.headers["Vary"] = "Authorization"
     return changes
 
 

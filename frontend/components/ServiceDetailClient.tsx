@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { servicesApi, changesApi, snapshotsApi, Service, ServiceUpdate, ChangeEvent, Snapshot } from '@/lib/api';
+import { servicesApi, changesApi, snapshotsApi, Service, ServiceUpdate, ChangeEvent, Snapshot, exportsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import ServiceForm from '@/components/ServiceForm';
 import ServiceDetail from '@/components/ServiceDetail';
+import SnapshotList from '@/components/SnapshotList';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
+import { formatDateTime } from '@/lib/datetime';
 
 type Tab = 'overview' | 'settings' | 'history' | 'snapshots';
 
@@ -33,7 +35,7 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
       const [serviceData, changesData, snapshotsData] = await Promise.all([
         servicesApi.get(serviceId),
         changesApi.getServiceChanges(serviceId, 5).catch(() => []),
-        snapshotsApi.getServiceSnapshots(serviceId, 5).catch(() => []),
+        snapshotsApi.getServiceSnapshots(serviceId, 20).catch(() => []),
       ]);
       setService(serviceData);
       setRecentChanges(changesData);
@@ -244,12 +246,55 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
           <div>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Change History</h2>
-              <Link
-                href={`/services/changes?id=${serviceId}`}
-                className="text-sm text-blue-600 hover:underline dark:text-blue-400"
-              >
-                View All
-              </Link>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const blob = await exportsApi.exportServiceChanges(serviceId, 'csv');
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `changes_${serviceId}_${new Date().toISOString().split('T')[0]}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to export changes');
+                    }
+                  }}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                >
+                  Export CSV
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const data = await exportsApi.exportServiceChanges(serviceId, 'json');
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `changes_${serviceId}_${new Date().toISOString().split('T')[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to export changes');
+                    }
+                  }}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                >
+                  Export JSON
+                </button>
+                <Link
+                  href={`/services/changes?id=${serviceId}`}
+                  className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  View All
+                </Link>
+              </div>
             </div>
             {recentChanges.length === 0 ? (
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-8 text-center dark:border-zinc-700 dark:bg-zinc-800">
@@ -267,7 +312,7 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
                       <div>
                         <p className="font-medium text-zinc-900 dark:text-zinc-50">{change.summary}</p>
                         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                          {new Date(change.created_at).toLocaleString()}
+                          {formatDateTime(change.created_at)}
                         </p>
                       </div>
                       <span className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -283,37 +328,58 @@ export default function ServiceDetailClient({ serviceId }: { serviceId: string }
 
         {activeTab === 'snapshots' && (
           <div>
-            <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">Snapshots</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Snapshots</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const blob = await exportsApi.exportServiceSnapshots(serviceId, 'csv');
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `snapshots_${serviceId}_${new Date().toISOString().split('T')[0]}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to export snapshots');
+                    }
+                  }}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                >
+                  Export CSV
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const data = await exportsApi.exportServiceSnapshots(serviceId, 'json');
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `snapshots_${serviceId}_${new Date().toISOString().split('T')[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to export snapshots');
+                    }
+                  }}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                >
+                  Export JSON
+                </button>
+              </div>
+            </div>
             {recentSnapshots.length === 0 ? (
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-8 text-center dark:border-zinc-700 dark:bg-zinc-800">
                 <p className="text-zinc-600 dark:text-zinc-400">No snapshots yet.</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {recentSnapshots.map((snapshot, index) => (
-                  <div
-                    key={snapshot.id}
-                    className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                            Snapshot #{recentSnapshots.length - index}
-                          </span>
-                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {new Date(snapshot.created_at).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className="mt-2 font-mono text-xs text-zinc-600 dark:text-zinc-400">
-                          {snapshot.normalized_content.substring(0, 100)}
-                          {snapshot.normalized_content.length > 100 ? '...' : ''}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <SnapshotList snapshots={recentSnapshots} serviceId={service.id} />
             )}
           </div>
         )}

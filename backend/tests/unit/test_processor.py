@@ -4,7 +4,8 @@ from app.services.processor import (
     extract_pricing_content,
     normalize_text,
     generate_hash,
-    process_html
+    process_html,
+    extract_structured_pricing,
 )
 
 
@@ -93,4 +94,12 @@ def test_process_html():
     assert len(normalized_hash) == 64
     assert raw_hash != normalized_hash
     assert "Plans" in normalized_content or "$10" in normalized_content
+
+
+def test_extract_structured_pricing_hulu_monthly_label_pairs():
+    text = "Disney+, Hulu Bundle Monthly: $12.99 Disney+, Hulu Bundle Premium Monthly: $19.99 Disney+, Hulu, ESPN Unlimited Bundle Monthly: $35.99"
+    structured = extract_structured_pricing(text)
+    assert "Disney+, Hulu Bundle — $12.99 / month" in structured
+    assert "Disney+, Hulu Bundle Premium — $19.99 / month" in structured
+    assert "Disney+, Hulu, ESPN Unlimited Bundle — $35.99 / month" in structured
 

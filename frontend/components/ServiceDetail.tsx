@@ -3,6 +3,7 @@
 import { Service, ChangeEvent, Snapshot } from '@/lib/api';
 import Link from 'next/link';
 import SnapshotList from './SnapshotList';
+import { formatDate, formatDateTime } from '@/lib/datetime';
 
 interface ServiceDetailProps {
   service: Service;
@@ -61,7 +62,35 @@ export default function ServiceDetail({ service, recentChanges, recentSnapshots 
             <div>
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Last Checked:</span>
               <span className="ml-2 text-sm text-zinc-600 dark:text-zinc-400">
-                {new Date(service.last_checked_at).toLocaleString()}
+                {formatDateTime(service.last_checked_at)}
+              </span>
+            </div>
+          )}
+          {service.alerts_enabled && (
+            <div>
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Alert Channels:</span>
+              <div className="ml-2 mt-1 flex flex-wrap gap-2">
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                  Email
+                </span>
+                {service.slack_webhook_url && (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
+                    Slack
+                  </span>
+                )}
+                {service.discord_webhook_url && (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400">
+                    Discord
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          {service.alerts_enabled && (
+            <div>
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Alerts (24h):</span>
+              <span className="ml-2 text-sm text-zinc-600 dark:text-zinc-400">
+                {service.alert_count_24h}/10
               </span>
             </div>
           )}
@@ -73,7 +102,7 @@ export default function ServiceDetail({ service, recentChanges, recentSnapshots 
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Recent Changes</h2>
             <Link
-              href={`/services/${service.id}/changes`}
+              href={`/services/changes?id=${service.id}`}
               className="text-sm text-blue-600 hover:underline dark:text-blue-400"
             >
               View All
@@ -91,7 +120,7 @@ export default function ServiceDetail({ service, recentChanges, recentSnapshots 
                     {change.summary}
                   </span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {new Date(change.created_at).toLocaleDateString()}
+                    {formatDate(change.created_at)}
                   </span>
                 </div>
               </Link>

@@ -53,6 +53,12 @@ export default function NavBar() {
               >
                 Pricing
               </Link>
+              <Link
+                href="/account"
+                className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
+              >
+                Account
+              </Link>
             </div>
           </div>
           

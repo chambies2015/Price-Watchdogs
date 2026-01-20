@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { subscriptionsApi } from '@/lib/api';
+import { formatDate } from '@/lib/datetime';
 
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
@@ -75,7 +76,7 @@ function CheckoutSuccessContent() {
             </p>
             {subscription.current_period_end && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                Next billing date: {new Date(subscription.current_period_end).toLocaleDateString()}
+                Next billing date: {formatDate(subscription.current_period_end)}
               </p>
             )}
           </div>

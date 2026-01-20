@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ChangeEvent, ChangeType } from '@/lib/api';
+import { formatDateTime } from '@/lib/datetime';
 
 interface ChangeHistoryProps {
   changes: ChangeEvent[];
@@ -31,11 +32,6 @@ function getChangeTypeLabel(changeType: ChangeType): string {
     unknown: 'Change Detected',
   };
   return labels[changeType] || 'Change';
-}
-
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleString();
 }
 
 export default function ChangeHistory({ changes, serviceId }: ChangeHistoryProps) {
@@ -81,7 +77,7 @@ export default function ChangeHistory({ changes, serviceId }: ChangeHistoryProps
                   </div>
                   <p className="mt-2 text-sm text-zinc-900 dark:text-zinc-50">{change.summary}</p>
                   <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {formatDate(change.created_at)}
+                    {formatDateTime(change.created_at)}
                   </p>
                 </div>
                 <div className="flex gap-2">

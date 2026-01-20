@@ -9,7 +9,6 @@ import logging
 import asyncio
 from typing import Dict, List, Any
 from uuid import UUID
-import httpx
 from app.database import AsyncSessionLocal
 from app.models.service import Service, CheckFrequency
 from app.models.alert import Alert
@@ -18,9 +17,24 @@ from app.models.snapshot import Snapshot
 from app.services.snapshot_service import create_snapshot
 from app.services.diff_service import process_new_snapshot
 from app.services.email_service import send_alert_email
+from app.services.slack_service import send_alert_to_slack
+from app.services.discord_service import send_alert_to_discord
 from app.services.cleanup_service import cleanup_old_snapshots
 
 logger = logging.getLogger(__name__)
+
+incident_history: List[Dict[str, Any]] = []
+
+
+def record_incident(incident_type: str, description: str) -> None:
+    incident = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "type": incident_type,
+        "description": description
+    }
+    incident_history.append(incident)
+    if len(incident_history) > 100:
+        incident_history.pop(0)
 
 scheduler = AsyncIOScheduler()
 
@@ -33,7 +47,6 @@ This module manages all background jobs using APScheduler:
 - fetch_service_pages: Runs hourly to fetch and snapshot service pages
 - dispatch_pending_alerts: Runs every 5 minutes to send pending email alerts
 - cleanup_snapshots: Runs weekly (Sunday 2 AM) to clean up old snapshots
-- keep_alive: Runs every 59 seconds to prevent Render free tier from sleeping
 
 All jobs are automatically started when the FastAPI application starts.
 Job metrics are tracked in the job_metrics dictionary for monitoring.
@@ -50,12 +63,13 @@ async def process_service_with_retry(
             if not should_check_service(service):
                 return True, "skipped_not_due"
             
-            snapshot = await create_snapshot(db, service)
+            snapshot, created_new = await create_snapshot(db, service)
             
             try:
-                change_event = await process_new_snapshot(db, snapshot)
-                if change_event:
-                    logger.info(f"Detected change for service {service.id}: {change_event.change_type.value}")
+                if created_new:
+                    change_event = await process_new_snapshot(db, snapshot)
+                    if change_event:
+                        logger.info(f"Detected change for service {service.id}: {change_event.change_type.value}")
             except Exception as e:
                 logger.error(f"Error processing diff for service {service.id}: {e}")
             
@@ -157,6 +171,7 @@ async def fetch_service_pages():
         metrics["errors"].append(f"Job failed: {str(e)}")
         
         logger.error(f"Error in page fetch job {job_id}: {e}")
+        record_incident("service_fetch_failure", f"Page fetch job failed: {str(e)}")
         
         if job_id not in job_metrics:
             job_metrics[job_id] = []
@@ -236,23 +251,48 @@ async def dispatch_pending_alerts():
                         metrics["errors"].append(f"Alert {alert.id}: New snapshot not found")
                         continue
                     
-                    success = await send_alert_email(
+                    channels_sent = []
+                    email_success = await send_alert_email(
                         change_event,
                         service,
                         user,
                         old_snapshot,
                         new_snapshot
                     )
+                    if email_success:
+                        channels_sent.append("email")
                     
-                    if success:
+                    if service.slack_webhook_url:
+                        slack_success = await send_alert_to_slack(
+                            change_event,
+                            service,
+                            user,
+                            old_snapshot,
+                            new_snapshot
+                        )
+                        if slack_success:
+                            channels_sent.append("slack")
+                    
+                    if service.discord_webhook_url:
+                        discord_success = await send_alert_to_discord(
+                            change_event,
+                            service,
+                            user,
+                            old_snapshot,
+                            new_snapshot
+                        )
+                        if discord_success:
+                            channels_sent.append("discord")
+                    
+                    if channels_sent:
                         alert.sent_at = datetime.utcnow()
                         await db.commit()
                         metrics["success_count"] += 1
-                        logger.info(f"Successfully dispatched alert {alert.id}")
+                        logger.info(f"Successfully dispatched alert {alert.id} via {', '.join(channels_sent)}")
                     else:
                         metrics["error_count"] += 1
-                        metrics["errors"].append(f"Alert {alert.id}: Email send failed")
-                        logger.warning(f"Failed to send email for alert {alert.id}")
+                        metrics["errors"].append(f"Alert {alert.id}: All channel sends failed")
+                        logger.warning(f"Failed to send alert {alert.id} via any channel")
                     
                     await asyncio.sleep(1)
                     
@@ -287,6 +327,7 @@ async def dispatch_pending_alerts():
         metrics["errors"].append(f"Job failed: {str(e)}")
         
         logger.error(f"Error in alert dispatch job {job_id}: {e}")
+        record_incident("alert_dispatch_failure", f"Alert dispatch job failed: {str(e)}")
         
         if job_id not in job_metrics:
             job_metrics[job_id] = []
@@ -355,18 +396,6 @@ async def cleanup_snapshots():
         job_metrics[job_id].append(metrics)
 
 
-async def keep_alive():
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get("http://localhost:8000/health")
-            if response.status_code == 200:
-                logger.debug("Keep-alive ping successful")
-            else:
-                logger.warning(f"Keep-alive ping returned status {response.status_code}")
-    except Exception as e:
-        logger.debug(f"Keep-alive ping failed (this is normal during startup): {str(e)}")
-
-
 def start_scheduler():
     scheduler.add_job(
         fetch_service_pages,
@@ -392,16 +421,8 @@ def start_scheduler():
         replace_existing=True
     )
     
-    scheduler.add_job(
-        keep_alive,
-        trigger=IntervalTrigger(seconds=59),
-        id='keep_alive',
-        name='Keep service alive (prevent Render sleep)',
-        replace_existing=True
-    )
-    
     scheduler.start()
-    logger.info("Scheduler started successfully with keep-alive job")
+    logger.info("Scheduler started successfully")
 
 
 def shutdown_scheduler():

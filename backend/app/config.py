@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     mailgun_api_key: Optional[str] = None
     mailgun_domain: Optional[str] = None
     mailgun_from_email: Optional[str] = None
+    mailgun_api_base_url: str = "https://api.mailgun.net"
     frontend_base_url: str = "http://localhost:3000"
     stripe_secret_key: Optional[str] = None
     stripe_publishable_key: Optional[str] = None
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
     sentry_dsn: Optional[str] = None
     environment: str = "development"
     cors_origins: str = "*"
+    log_sample_rate: float = 0.1
 
     class Config:
         env_file = ".env"

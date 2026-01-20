@@ -25,6 +25,10 @@ async def test_dashboard_summary(client: AsyncClient, auth_headers: dict, db_ses
     assert isinstance(data["total_services"], int)
     assert isinstance(data["active_services"], int)
     assert isinstance(data["recent_changes_count"], int)
+    if data["services"]:
+        sample = data["services"][0]
+        assert "check_frequency" in sample
+        assert "next_check_at" in sample
 
 
 @pytest.mark.asyncio
@@ -92,6 +96,8 @@ async def test_dashboard_summary_with_changes(client: AsyncClient, auth_headers:
     assert service_summary is not None
     assert service_summary["last_change_event"] is not None
     assert service_summary["change_count"] >= 1
+    assert "check_frequency" in service_summary
+    assert "next_check_at" in service_summary
 
 
 @pytest.mark.asyncio
@@ -124,4 +130,114 @@ async def test_dashboard_summary_last_check_status(client: AsyncClient, auth_hea
     service_summary = next((s for s in data["services"] if s["id"] == str(service.id)), None)
     assert service_summary is not None
     assert service_summary["last_checked_at"] is not None
+    assert service_summary["next_check_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_dashboard_summary_with_filters(client: AsyncClient, auth_headers: dict):
+    tag_response = await client.post(
+        "/api/tags",
+        json={"name": "Test Tag", "color": "#ff0000"},
+        headers=auth_headers
+    )
+    tag_id = tag_response.json()["id"]
+    
+    service_response = await client.post(
+        "/api/services",
+        json={
+            "name": "Tagged Service",
+            "url": "https://example.com/pricing",
+            "check_frequency": "daily",
+            "tag_ids": [tag_id]
+        },
+        headers=auth_headers
+    )
+    
+    await client.post(
+        "/api/services",
+        json={
+            "name": "Untagged Service",
+            "url": "https://example.com/pricing2",
+            "check_frequency": "daily"
+        },
+        headers=auth_headers
+    )
+    
+    response = await client.get(
+        f"/api/dashboard/summary?tags={tag_id}",
+        headers=auth_headers
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["services"]) == 1
+    assert data["services"][0]["name"] == "Tagged Service"
+
+
+@pytest.mark.asyncio
+async def test_dashboard_summary_with_active_filter(client: AsyncClient, auth_headers: dict):
+    await client.post(
+        "/api/services",
+        json={
+            "name": "Active Service",
+            "url": "https://example.com/pricing1",
+            "check_frequency": "daily",
+            "is_active": True
+        },
+        headers=auth_headers
+    )
+    
+    await client.post(
+        "/api/services",
+        json={
+            "name": "Inactive Service",
+            "url": "https://example.com/pricing2",
+            "check_frequency": "daily",
+            "is_active": False
+        },
+        headers=auth_headers
+    )
+    
+    response = await client.get(
+        "/api/dashboard/summary?is_active=true",
+        headers=auth_headers
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert all(s["is_active"] is True for s in data["services"])
+
+
+@pytest.mark.asyncio
+async def test_dashboard_summary_with_sorting(client: AsyncClient, auth_headers: dict):
+    await client.post(
+        "/api/services",
+        json={
+            "name": "Zebra Service",
+            "url": "https://example.com/pricing1",
+            "check_frequency": "daily"
+        },
+        headers=auth_headers
+    )
+    
+    await client.post(
+        "/api/services",
+        json={
+            "name": "Alpha Service",
+            "url": "https://example.com/pricing2",
+            "check_frequency": "daily"
+        },
+        headers=auth_headers
+    )
+    
+    response = await client.get(
+        "/api/dashboard/summary?sort_by=name&sort_order=asc",
+        headers=auth_headers
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    if len(data["services"]) >= 2:
+        names = [s["name"] for s in data["services"]]
+        assert names == sorted(names)
 

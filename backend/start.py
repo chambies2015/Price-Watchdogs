@@ -2,35 +2,40 @@
 import os
 import subprocess
 import sys
+import time
+
+
+def _is_truthy(value):
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
-    print("Installing Playwright browsers...")
-    playwright_result = subprocess.run(
-        [sys.executable, "-m", "playwright", "install", "chromium"],
-        check=False
-    )
-    if playwright_result.returncode != 0:
-        print("Warning: Playwright browser install failed, but continuing...")
-    
-    print("Running database migrations...")
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        check=False
-    )
-    
-    if result.returncode != 0:
-        print("Warning: Migrations failed (this may be normal if tables already exist).")
-        print("Attempting to stamp database to current version...")
-        stamp_result = subprocess.run(
-            [sys.executable, "-m", "alembic", "stamp", "head"],
+    if not os.environ.get("DOCKER_BUILD"):
+        print("Installing Playwright browsers...")
+        playwright_result = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
             check=False
         )
-        if stamp_result.returncode == 0:
-            print("Database stamped successfully.")
-        else:
-            print("Warning: Could not stamp database, but continuing...")
+        if playwright_result.returncode != 0:
+            print("Warning: Playwright browser install failed, but continuing...")
+    else:
+        print("Skipping Playwright install (already done in Docker image)")
+    
+    if _is_truthy(os.environ.get("RUN_MIGRATIONS")) and not _is_truthy(os.environ.get("SKIP_MIGRATIONS")):
+        print("Running database migrations...")
+        last_rc = 1
+        for attempt in range(1, 7):
+            result = subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=False)
+            last_rc = result.returncode
+            if last_rc == 0:
+                break
+            if attempt < 7:
+                time.sleep(min(2 ** attempt, 15))
+        if last_rc != 0:
+            sys.exit(last_rc)
     
     print("Setting up admin account...")
     admin_result = subprocess.run(

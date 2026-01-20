@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { subscriptionsApi, Subscription, Payment } from '@/lib/api';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
+import { formatDate } from '@/lib/datetime';
 
 interface BillingDashboardProps {
   subscription: Subscription | null;
@@ -89,7 +90,7 @@ export default function BillingDashboard({
                 {subscription.cancel_at_period_end ? 'Expires' : 'Next Billing Date'}
               </p>
               <p className="text-xl font-semibold text-gray-900 dark:text-white">
-                {new Date(subscription.current_period_end).toLocaleDateString()}
+                {formatDate(subscription.current_period_end)}
               </p>
             </div>
           )}
@@ -109,7 +110,7 @@ export default function BillingDashboard({
         {showCancelConfirm && (
           <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
             <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-4">
-              Your subscription will remain active until {subscription.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'the end of the billing period'}. 
+              Your subscription will remain active until {subscription.current_period_end ? formatDate(subscription.current_period_end) : 'the end of the billing period'}. 
               After that, you'll be downgraded to the free plan.
             </p>
             <div className="flex gap-3">

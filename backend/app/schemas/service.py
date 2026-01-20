@@ -1,8 +1,9 @@
 from pydantic import BaseModel, HttpUrl, Field, field_validator
 from datetime import datetime
 from uuid import UUID
-from typing import Optional
+from typing import Optional, List
 from app.models.service import CheckFrequency
+from app.schemas.tag import TagResponse
 
 
 class ServiceBase(BaseModel):
@@ -19,7 +20,7 @@ class ServiceBase(BaseModel):
 
 
 class ServiceCreate(ServiceBase):
-    pass
+    tag_ids: Optional[List[UUID]] = Field(None, description="List of tag IDs to assign to the service")
 
 
 class ServiceUpdate(BaseModel):
@@ -29,6 +30,9 @@ class ServiceUpdate(BaseModel):
     is_active: Optional[bool] = None
     alerts_enabled: Optional[bool] = None
     alert_confidence_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
+    slack_webhook_url: Optional[str] = Field(None)
+    discord_webhook_url: Optional[str] = Field(None)
+    tag_ids: Optional[List[UUID]] = Field(None, description="List of tag IDs to assign to the service")
 
     @field_validator('url')
     @classmethod
@@ -45,7 +49,11 @@ class ServiceResponse(ServiceBase):
     is_active: bool
     alerts_enabled: bool
     alert_confidence_threshold: float
+    slack_webhook_url: Optional[str] = None
+    discord_webhook_url: Optional[str] = None
+    alert_count_24h: int = 0
     created_at: datetime
+    tags: List[TagResponse] = []
 
     class Config:
         from_attributes = True

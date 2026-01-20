@@ -31,7 +31,7 @@ async def test_process_service_with_retry_success(db_session: AsyncSession, test
         
         mock_snapshot = MagicMock()
         mock_snapshot.id = uuid4()
-        mock_create.return_value = mock_snapshot
+        mock_create.return_value = (mock_snapshot, True)
         mock_process.return_value = None
         
         success, status = await process_service_with_retry(db_session, service, max_retries=3)
@@ -113,7 +113,7 @@ async def test_fetch_service_pages_batch_processing(db_session: AsyncSession, te
         
         mock_snapshot = MagicMock()
         mock_snapshot.id = uuid4()
-        mock_create.return_value = mock_snapshot
+        mock_create.return_value = (mock_snapshot, True)
         mock_process.return_value = None
         
         await fetch_service_pages()
@@ -145,7 +145,7 @@ async def test_fetch_service_pages_metrics_tracking(db_session: AsyncSession, te
         
         mock_snapshot = MagicMock()
         mock_snapshot.id = uuid4()
-        mock_create.return_value = mock_snapshot
+        mock_create.return_value = (mock_snapshot, True)
         mock_process.return_value = None
         
         await fetch_service_pages()

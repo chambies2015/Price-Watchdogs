@@ -88,6 +88,13 @@ def generate_diff(old_content: str, new_content: str) -> Tuple[List[str], List[s
     return added, removed, changed
 
 
+def _format_prices(prices: List[float]) -> str:
+    if not prices:
+        return ""
+    unique = sorted(set(prices))[:3]
+    return ", ".join(f"${price:.2f}" for price in unique)
+
+
 def classify_change(old_content: str, new_content: str, added: List[str], removed: List[str]) -> Tuple[ChangeType, str, float]:
     old_prices = extract_prices(old_content)
     new_prices = extract_prices(new_content)
@@ -137,23 +144,29 @@ def classify_change(old_content: str, new_content: str, added: List[str], remove
             
             if avg_new > avg_old:
                 price_diff = avg_new - avg_old
-                summary = f"Price increase detected: average price increased by ${price_diff:.2f}"
+                old_preview = _format_prices(old_price_nums)
+                new_preview = _format_prices(new_price_nums)
+                detail = f" from {old_preview} to {new_preview}" if old_preview and new_preview else ""
+                summary = f"Price increase detected: average price increased by ${price_diff:.2f}{detail}"
                 return ChangeType.price_increase, summary, 0.85
             elif avg_new < avg_old:
                 price_diff = avg_old - avg_new
-                summary = f"Price decrease detected: average price decreased by ${price_diff:.2f}"
+                old_preview = _format_prices(old_price_nums)
+                new_preview = _format_prices(new_price_nums)
+                detail = f" from {old_preview} to {new_preview}" if old_preview and new_preview else ""
+                summary = f"Price decrease detected: average price decreased by ${price_diff:.2f}{detail}"
                 return ChangeType.price_decrease, summary, 0.85
     
     added_prices_in_diff = extract_prices(added_text)
     removed_prices_in_diff = extract_prices(removed_text)
     
     if added_prices_in_diff and removed_prices_in_diff:
-        summary = f"Pricing changes detected: {len(removed_prices_in_diff)} prices removed, {len(added_prices_in_diff)} prices added"
+        summary = f"Pricing changes detected: {len(removed_prices_in_diff)} removed, {len(added_prices_in_diff)} added"
         return ChangeType.price_increase, summary, 0.7
     
     if len(added) > 0 or len(removed) > 0:
         change_size = len(added) + len(removed)
-        summary = f"Content change detected: {len(removed)} lines removed, {len(added)} lines added"
+        summary = f"Content updated: {len(removed)} lines removed, {len(added)} lines added"
         
         confidence = min(0.5, 0.3 + (change_size * 0.01))
         

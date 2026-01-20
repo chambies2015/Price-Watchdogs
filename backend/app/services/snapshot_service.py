@@ -16,7 +16,7 @@ async def create_snapshot(
     db: AsyncSession,
     service: Service,
     custom_selector: str = None
-) -> Snapshot:
+) -> tuple[Snapshot, bool]:
     try:
         html = await fetch_page(service.url)
         
@@ -34,7 +34,7 @@ async def create_snapshot(
             logger.info(f"No changes detected for service {service.id}")
             service.last_checked_at = datetime.utcnow()
             await db.commit()
-            return last_snapshot
+            return last_snapshot, False
         
         snapshot = Snapshot(
             id=uuid.uuid4(),
@@ -54,7 +54,7 @@ async def create_snapshot(
         
         logger.info(f"Created snapshot {snapshot.id} for service {service.id}")
         
-        return snapshot
+        return snapshot, True
         
     except FetchError as e:
         logger.error(f"Failed to fetch page for service {service.id}: {e}")

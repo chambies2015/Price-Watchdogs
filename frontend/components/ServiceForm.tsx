@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Service, ServiceCreate, ServiceUpdate, CheckFrequency, subscriptionsApi, Subscription } from '@/lib/api';
 import Link from 'next/link';
+import TagManager from './TagManager';
 
 interface ServiceFormProps {
   initialData?: Service;
@@ -17,6 +18,21 @@ export default function ServiceForm({
   onCancel,
   submitLabel = 'Save',
 }: ServiceFormProps) {
+  const presets = [
+    { id: 'custom', label: 'Custom', name: '', url: '' },
+    { id: 'netflix', label: 'Netflix', name: 'Netflix', url: 'https://www.netflix.com/signup?serverState=%7B%22realm%22%3A%22growth%22%2C%22name%22%3A%22PLAN_SELECTION%22%2C%22clcsSessionId%22%3A%223c446b7f-661e-4ea2-9320-ae6900ce3e5d%22%2C%22sessionContext%22%3A%7B%22session-breadcrumbs%22%3A%7B%22funnel_name%22%3A%22signupSimplicity%22%7D%7D%7D' },
+    { id: 'disney_plus', label: 'Disney+', name: 'Disney+', url: 'https://www.disneyplus.com/commerce/plans' },
+    { id: 'hulu', label: 'Hulu', name: 'Hulu', url: 'https://help.hulu.com/article/hulu-how-much-does-hulu-cost' },
+    { id: 'youtube_tv', label: 'YouTube TV', name: 'YouTube TV', url: 'https://tv.youtube.com/welcome/#plans' },
+    { id: 'max', label: 'Max (HBO Max)', name: 'Max', url: 'https://help.hbomax.com/us/Answer/Detail/000002547' },
+    { id: 'prime_video', label: 'Amazon Prime', name: 'Amazon Prime', url: 'https://www.amazon.com/amazonprime' },
+    { id: 'apple_tv_plus', label: 'Apple TV+', name: 'Apple TV+', url: 'https://www.apple.com/apple-tv/' },
+    { id: 'paramount_plus', label: 'Paramount+', name: 'Paramount+', url: 'https://www.paramountplus.com/account/signup/pickplan/' },
+    { id: 'peacock', label: 'Peacock', name: 'Peacock', url: 'https://www.peacocktv.com/plans/all-monthly' },
+    { id: 'spotify', label: 'Spotify Premium', name: 'Spotify Premium', url: 'https://www.spotify.com/us/premium/' },
+  ] as const;
+
+  const [presetId, setPresetId] = useState<string>('custom');
   const [name, setName] = useState(initialData?.name || '');
   const [url, setUrl] = useState(initialData?.url || '');
   const [checkFrequency, setCheckFrequency] = useState<CheckFrequency>(
@@ -27,6 +43,9 @@ export default function ServiceForm({
   const [confidenceThreshold, setConfidenceThreshold] = useState(
     initialData?.alert_confidence_threshold ?? 0.6
   );
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState(initialData?.slack_webhook_url || '');
+  const [discordWebhookUrl, setDiscordWebhookUrl] = useState(initialData?.discord_webhook_url || '');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialData?.tags?.map(t => t.id) || []);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -107,9 +126,17 @@ export default function ServiceForm({
           is_active: isActive,
           alerts_enabled: alertsEnabled,
           alert_confidence_threshold: confidenceThreshold,
+          slack_webhook_url: slackWebhookUrl || null,
+          discord_webhook_url: discordWebhookUrl || null,
+          tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
         });
       } else {
-        await onSubmit({ name, url, check_frequency: checkFrequency });
+        await onSubmit({ 
+          name, 
+          url, 
+          check_frequency: checkFrequency,
+          tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save service');
@@ -150,6 +177,36 @@ export default function ServiceForm({
           <p>
             You have {subscription.service_limit - subscription.current_service_count} service{subscription.service_limit - subscription.current_service_count !== 1 ? 's' : ''} remaining.
             {subscription.plan_type === 'free' && ' Upgrade to Pro for unlimited services.'}
+          </p>
+        </div>
+      )}
+
+      {!initialData && (
+        <div>
+          <label htmlFor="preset" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Preset Service
+          </label>
+          <select
+            id="preset"
+            value={presetId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setPresetId(id);
+              const preset = presets.find((p) => p.id === id);
+              if (!preset || preset.id === 'custom') return;
+              setName(preset.name);
+              setUrl(preset.url);
+            }}
+            className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
+          >
+            {presets.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            Selecting a preset auto-fills the name and URL. You can still edit both fields.
           </p>
         </div>
       )}
@@ -256,28 +313,77 @@ export default function ServiceForm({
             </div>
             
             {alertsEnabled && (
-              <div>
-                <label htmlFor="confidence_threshold" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Confidence Threshold
-                </label>
-                <input
-                  id="confidence_threshold"
-                  type="number"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={confidenceThreshold}
-                  onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value) || 0.6)}
-                  className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
-                />
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  Only send alerts for changes with confidence above this threshold (0.0 - 1.0)
-                </p>
-              </div>
+              <>
+                <div>
+                  <label htmlFor="confidence_threshold" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Confidence Threshold
+                  </label>
+                  <input
+                    id="confidence_threshold"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={confidenceThreshold}
+                    onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value) || 0.6)}
+                    className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
+                  />
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    Only send alerts for changes with confidence above this threshold (0.0 - 1.0)
+                  </p>
+                </div>
+                {initialData && (
+                  <>
+                    <div>
+                      <label htmlFor="slack_webhook" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        Slack Webhook URL (optional)
+                      </label>
+                      <input
+                        id="slack_webhook"
+                        type="url"
+                        value={slackWebhookUrl}
+                        onChange={(e) => setSlackWebhookUrl(e.target.value)}
+                        placeholder="https://hooks.slack.com/services/..."
+                        className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
+                      />
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Receive alerts in Slack. Leave empty to disable.
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="discord_webhook" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        Discord Webhook URL (optional)
+                      </label>
+                      <input
+                        id="discord_webhook"
+                        type="url"
+                        value={discordWebhookUrl}
+                        onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+                        placeholder="https://discord.com/api/webhooks/..."
+                        className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:text-sm"
+                      />
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Receive alerts in Discord. Leave empty to disable.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </div>
         </>
       )}
+
+      <div>
+        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+          Tags (optional)
+        </label>
+        <TagManager
+          onTagSelect={setSelectedTagIds}
+          selectedTagIds={selectedTagIds}
+          showCreate={true}
+        />
+      </div>
       
       <div className="flex gap-3">
         <button

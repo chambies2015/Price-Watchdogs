@@ -1,6 +1,7 @@
 import httpx
 import logging
 import html
+import re
 from typing import Optional
 from datetime import datetime
 from app.config import settings
@@ -10,6 +11,12 @@ from app.models.user import User
 from app.models.snapshot import Snapshot
 
 logger = logging.getLogger(__name__)
+
+def _frontend_url(path: str) -> str:
+    base = (settings.frontend_base_url or "").rstrip("/")
+    if not path.startswith("/"):
+        path = "/" + path
+    return f"{base}{path}"
 
 
 def render_alert_email(
@@ -29,7 +36,8 @@ def render_alert_email(
     }
     
     change_label = change_type_labels.get(change_event.change_type.value, "Change Detected")
-    diff_url = f"{settings.frontend_base_url}/services/{service.id}/changes/{change_event.id}"
+    diff_url = _frontend_url(f"/services/change-detail?id={service.id}&changeId={change_event.id}")
+    service_url = _frontend_url(f"/services/detail?id={service.id}")
     
     old_content_preview = ""
     new_content_preview = ""
@@ -75,6 +83,7 @@ def render_alert_email(
         <div class="content">
             <h2>{html.escape(service.name)}</h2>
             <p><a href="{html.escape(service.url)}">{html.escape(service.url)}</a></p>
+            <p><a href="{html.escape(service_url)}">Open service dashboard</a></p>
             
             <div style="margin: 20px 0;">
                 <span class="change-type">{change_label}</span>
@@ -112,6 +121,8 @@ Confidence: {change_event.confidence_score:.0%}
 Summary: {change_event.summary}
 Detected: {change_event.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
 
+Service dashboard: {service_url}
+
 {f'Before:\n{old_content_preview}\n' if old_content_preview else ''}After:
 {new_content_preview}
 
@@ -135,41 +146,118 @@ async def send_alert_email(
     if not settings.mailgun_api_key or not settings.mailgun_domain or not settings.mailgun_from_email:
         logger.warning("Mailgun configuration missing, skipping email send")
         return False
-    
+
+    domain = settings.mailgun_domain.strip()
+    if "." not in domain:
+        logger.error("Invalid MAILGUN_DOMAIN: %s", domain)
+        return False
+
+    from_email = settings.mailgun_from_email.strip()
+    from_addr_match = re.search(r"<([^>]+)>", from_email)
+    from_addr = (from_addr_match.group(1) if from_addr_match else from_email).strip()
+    if "@" in from_addr:
+        from_domain = from_addr.split("@", 1)[1].strip().lower()
+        if from_domain and not (domain.lower().endswith(from_domain) or from_domain.endswith(domain.lower())):
+            logger.warning("MAILGUN_FROM_EMAIL domain (%s) does not match MAILGUN_DOMAIN (%s)", from_domain, domain)
+
     try:
-        html_content, text_content = render_alert_email(
-            change_event, service, user, old_snapshot, new_snapshot
-        )
-        
+        html_content, text_content = render_alert_email(change_event, service, user, old_snapshot, new_snapshot)
         subject = f"Price Change Detected: {service.name}"
-        
-        mailgun_url = f"https://api.mailgun.net/v3/{settings.mailgun_domain}/messages"
-        
+
+        base = (settings.mailgun_api_base_url or "https://api.mailgun.net").rstrip("/")
+        if base.endswith("/v3"):
+            base = base[:-3].rstrip("/")
+        mailgun_url = f"{base}/v3/{domain}/messages"
+
+        api_key = settings.mailgun_api_key.strip()
+        if api_key.lower().startswith("api:"):
+            api_key = api_key.split(":", 1)[1].strip()
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 mailgun_url,
-                auth=("api", settings.mailgun_api_key),
+                auth=("api", api_key),
                 data={
                     "from": settings.mailgun_from_email,
                     "to": user.email,
                     "subject": subject,
                     "text": text_content,
-                    "html": html_content
+                    "html": html_content,
+                    "o:tracking": "no",
+                    "o:tracking-clicks": "no",
+                    "o:tracking-opens": "no",
                 },
-                timeout=10.0
+                timeout=10.0,
             )
-            
             if response.status_code == 200:
-                logger.info(f"Successfully sent alert email to {user.email} for change event {change_event.id}")
+                logger.info("Successfully sent alert email to %s for change event %s", user.email, change_event.id)
                 return True
-            else:
-                logger.error(f"Failed to send email via Mailgun: {response.status_code} - {response.text}")
+            if response.status_code in (401, 403):
+                logger.error(
+                    "Mailgun auth failed (%s). Check MAILGUN_API_KEY/MAILGUN_DOMAIN and MAILGUN_API_BASE_URL (EU accounts typically use https://api.eu.mailgun.net). Response: %s",
+                    response.status_code,
+                    response.text,
+                )
                 return False
-                
+            logger.error("Failed to send email via Mailgun: %s - %s", response.status_code, response.text)
+            return False
     except httpx.TimeoutException:
-        logger.error(f"Timeout sending email to {user.email} for change event {change_event.id}")
+        logger.error("Timeout sending email to %s for change event %s", user.email, change_event.id)
         return False
     except Exception as e:
-        logger.error(f"Error sending email to {user.email} for change event {change_event.id}: {e}")
+        logger.error("Error sending email to %s for change event %s: %s", user.email, change_event.id, e)
         return False
 
+
+async def send_password_reset_email(to_email: str, reset_url: str) -> bool:
+    if not settings.mailgun_api_key or not settings.mailgun_domain or not settings.mailgun_from_email:
+        logger.warning("Mailgun configuration missing, skipping password reset email send")
+        return False
+    domain = settings.mailgun_domain.strip()
+    if "." not in domain:
+        logger.error("Invalid MAILGUN_DOMAIN: %s", domain)
+        return False
+    base = (settings.mailgun_api_base_url or "https://api.mailgun.net").rstrip("/")
+    if base.endswith("/v3"):
+        base = base[:-3].rstrip("/")
+    mailgun_url = f"{base}/v3/{domain}/messages"
+    api_key = settings.mailgun_api_key.strip()
+    if api_key.lower().startswith("api:"):
+        api_key = api_key.split(":", 1)[1].strip()
+    subject = "Reset your Price Watchdogs password"
+    text = f"Reset your password: {reset_url}"
+    html_content = f'<p><a href="{html.escape(reset_url)}">Reset your password</a></p>'
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                mailgun_url,
+                auth=("api", api_key),
+                data={
+                    "from": settings.mailgun_from_email,
+                    "to": to_email,
+                    "subject": subject,
+                    "text": text,
+                    "html": html_content,
+                    "o:tracking": "no",
+                    "o:tracking-clicks": "no",
+                    "o:tracking-opens": "no",
+                },
+                timeout=10.0,
+            )
+            if response.status_code == 200:
+                return True
+            if response.status_code in (401, 403):
+                logger.error(
+                    "Mailgun auth failed (%s) while sending password reset. Response: %s",
+                    response.status_code,
+                    response.text,
+                )
+                return False
+            logger.error("Failed to send password reset email via Mailgun: %s - %s", response.status_code, response.text)
+            return False
+    except httpx.TimeoutException:
+        logger.error("Timeout sending password reset email to %s", to_email)
+        return False
+    except Exception as e:
+        logger.error("Error sending password reset email to %s: %s", to_email, e)
+        return False

@@ -5,6 +5,7 @@ Disallow: /dashboard/
 Disallow: /billing/
 Disallow: /services/
 Disallow: /checkout/
+Disallow: /home/
 
 Sitemap: https://pricewatchdogs.com/sitemap.xml
 

@@ -3,10 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from app.database import engine, Base
-from app.api import auth, services, snapshots, subscriptions, health, metrics
+from app.api import auth, services, snapshots, subscriptions, health, metrics, tags, saved_views, exports
+from app.api.health import status_router
 from app.scheduler import start_scheduler, shutdown_scheduler
 from app.config import settings
 from app.middleware.rate_limit import limiter
+from app.middleware.security import SecurityHeadersMiddleware
 from slowapi.errors import RateLimitExceeded
 from pathlib import Path
 import logging
@@ -41,15 +43,24 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Price Watchdogs API", version="1.0.0")
 app.state.limiter = limiter
+app.add_middleware(SecurityHeadersMiddleware)
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    request_id = getattr(request.state, "request_id", None)
+    logger.warning(f"rate_limit_exceeded request_id={request_id} path={request.url.path}")
     return JSONResponse(
         status_code=429,
-        content={"detail": "Rate limit exceeded. Please try again later."}
+        content={"detail": "Rate limit exceeded. Please try again later.", "request_id": request_id}
     )
 
-cors_origins = settings.cors_origins.split(",") if settings.cors_origins != "*" else ["*"]
+if settings.environment == "production":
+    if settings.cors_origins == "*":
+        cors_origins = [settings.frontend_base_url]
+    else:
+        cors_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
+else:
+    cors_origins = settings.cors_origins.split(",") if settings.cors_origins != "*" else ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -64,7 +75,22 @@ app.include_router(services.dashboard_router)
 app.include_router(snapshots.router)
 app.include_router(subscriptions.router)
 app.include_router(health.router)
+app.include_router(status_router)
 app.include_router(metrics.router)
+app.include_router(tags.router)
+app.include_router(saved_views.router)
+app.include_router(exports.router)
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    request_id = getattr(request.state, "request_id", None)
+    logger.exception(f"unhandled_exception request_id={request_id} path={request.url.path}")
+    payload = {"detail": "Internal server error"}
+    if request_id:
+        payload["request_id"] = request_id
+    if settings.environment != "production":
+        payload["error"] = str(exc)
+    return JSONResponse(status_code=500, content=payload)
 
 @app.get("/health")
 async def health_check():

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Enum, Float
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Enum, Float, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -26,9 +26,14 @@ class Service(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     alerts_enabled = Column(Boolean, default=True, nullable=False)
     alert_confidence_threshold = Column(Float, default=0.6, nullable=False)
+    slack_webhook_url = Column(String, nullable=True)
+    discord_webhook_url = Column(String, nullable=True)
+    alert_count_24h = Column(Integer, default=0, nullable=False)
+    last_alert_reset = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", back_populates="services")
     snapshots = relationship("Snapshot", back_populates="service", cascade="all, delete-orphan")
     change_events = relationship("ChangeEvent", back_populates="service", cascade="all, delete-orphan")
+    tags = relationship("Tag", secondary="service_tags", back_populates="services")
 
