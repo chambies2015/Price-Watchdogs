@@ -31,9 +31,6 @@ def upgrade() -> None:
     result = bind.execute(sa.text("SELECT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sortorder')"))
     if not result.scalar():
         op.execute("CREATE TYPE sortorder AS ENUM ('asc', 'desc')")
-    
-    sortby_enum = sa.Enum('name', 'created_at', 'last_checked_at', name='sortby', create_type=False)
-    sortorder_enum = sa.Enum('asc', 'desc', name='sortorder', create_type=False)
 
     if 'tags' not in tables:
         op.create_table(
@@ -57,17 +54,18 @@ def upgrade() -> None:
         op.create_index('ix_service_tags_tag_id', 'service_tags', ['tag_id'])
 
     if 'saved_views' not in tables:
-        op.create_table(
-            'saved_views',
-            sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-            sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
-            sa.Column('name', sa.String(), nullable=False),
-            sa.Column('filter_tags', sa.JSON(), nullable=True),
-            sa.Column('filter_active', sa.Boolean(), nullable=True),
-            sa.Column('sort_by', sortby_enum, nullable=False),
-            sa.Column('sort_order', sortorder_enum, nullable=False),
-            sa.Column('created_at', sa.DateTime(), nullable=False),
-        )
+        op.execute("""
+            CREATE TABLE saved_views (
+                id UUID PRIMARY KEY,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name VARCHAR NOT NULL,
+                filter_tags JSON,
+                filter_active BOOLEAN,
+                sort_by sortby NOT NULL,
+                sort_order sortorder NOT NULL,
+                created_at TIMESTAMP NOT NULL
+            )
+        """)
         op.create_index('ix_saved_views_user_id', 'saved_views', ['user_id'])
 
 
