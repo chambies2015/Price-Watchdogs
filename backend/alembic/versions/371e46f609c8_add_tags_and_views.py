@@ -23,10 +23,17 @@ def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
     tables = set(inspector.get_table_names())
-    sortby_enum = sa.Enum('name', 'created_at', 'last_checked_at', name='sortby')
-    sortorder_enum = sa.Enum('asc', 'desc', name='sortorder')
-    sortby_enum.create(bind, checkfirst=True)
-    sortorder_enum.create(bind, checkfirst=True)
+    
+    result = bind.execute(sa.text("SELECT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sortby')"))
+    if not result.scalar():
+        op.execute("CREATE TYPE sortby AS ENUM ('name', 'created_at', 'last_checked_at')")
+    
+    result = bind.execute(sa.text("SELECT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sortorder')"))
+    if not result.scalar():
+        op.execute("CREATE TYPE sortorder AS ENUM ('asc', 'desc')")
+    
+    sortby_enum = sa.Enum('name', 'created_at', 'last_checked_at', name='sortby', create_type=False)
+    sortorder_enum = sa.Enum('asc', 'desc', name='sortorder', create_type=False)
 
     if 'tags' not in tables:
         op.create_table(
