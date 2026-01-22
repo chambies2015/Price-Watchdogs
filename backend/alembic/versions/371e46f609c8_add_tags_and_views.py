@@ -31,9 +31,6 @@ def upgrade() -> None:
     result = bind.execute(sa.text("SELECT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sortorder')"))
     if not result.scalar():
         op.execute("CREATE TYPE sortorder AS ENUM ('asc', 'desc')")
-    
-    sortby_enum = sa.Enum('name', 'created_at', 'last_checked_at', name='sortby', create_type=False)
-    sortorder_enum = sa.Enum('asc', 'desc', name='sortorder', create_type=False)
 
     if 'tags' not in tables:
         op.create_table(
@@ -64,8 +61,8 @@ def upgrade() -> None:
             sa.Column('name', sa.String(), nullable=False),
             sa.Column('filter_tags', sa.JSON(), nullable=True),
             sa.Column('filter_active', sa.Boolean(), nullable=True),
-            sa.Column('sort_by', sortby_enum, nullable=False),
-            sa.Column('sort_order', sortorder_enum, nullable=False),
+            sa.Column('sort_by', postgresql.ENUM('name', 'created_at', 'last_checked_at', name='sortby', create_type=False), nullable=False),
+            sa.Column('sort_order', postgresql.ENUM('asc', 'desc', name='sortorder', create_type=False), nullable=False),
             sa.Column('created_at', sa.DateTime(), nullable=False),
         )
         op.create_index('ix_saved_views_user_id', 'saved_views', ['user_id'])
