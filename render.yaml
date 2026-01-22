@@ -18,7 +18,7 @@ services:
         value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: price-watchdogs-db
+          name: Price Watchdogs PostgreSQL
           property: connectionString
       - key: NEXT_PUBLIC_API_URL
         value: /api
@@ -28,9 +28,11 @@ services:
         value: ""
       - key: FRONTEND_BASE_URL
         value: https://price-watchdogs.onrender.com
+      - key: RUN_MIGRATIONS
+        value: "true"
 
 databases:
-  - name: price-watchdogs-db
+  - name: Price Watchdogs PostgreSQL
     plan: free
     databaseName: price_watchdogs
     user: price_watchdogs_user
