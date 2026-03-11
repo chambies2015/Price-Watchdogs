@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     cors_origins: str = "*"
     log_sample_rate: float = 0.1
+    maintenance_mode: bool = False
 
     class Config:
         env_file = ".env"

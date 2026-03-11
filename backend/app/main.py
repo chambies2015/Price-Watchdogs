@@ -147,10 +147,10 @@ else:
 
 @app.on_event("startup")
 async def startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    start_scheduler()
+    if not settings.maintenance_mode:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        start_scheduler()
     logger.info("Application startup complete")
 
 

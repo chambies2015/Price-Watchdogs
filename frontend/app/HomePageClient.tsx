@@ -93,6 +93,10 @@ export default function HomePageClient() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
+      <div className="fixed top-0 left-0 right-0 z-50 w-full bg-amber-500 text-amber-950 py-3 px-4 text-center text-sm font-medium shadow-md">
+        Site Under Maintenance — Registration and monitoring are temporarily disabled while we improve the service.
+      </div>
+      <div className="pt-12">
       <nav className="border-b border-zinc-200 dark:border-zinc-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -290,6 +294,7 @@ export default function HomePageClient() {
           <p>&copy; {new Date().getFullYear()} Price Watchdogs. All rights reserved.</p>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

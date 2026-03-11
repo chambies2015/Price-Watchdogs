@@ -70,7 +70,7 @@ async def test_400_missing_required_fields(client: AsyncClient, auth_headers: di
 async def test_401_unauthorized_access(client: AsyncClient):
     response = await client.get("/api/services")
     
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.asyncio

@@ -13,8 +13,10 @@ os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
 os.environ["ENVIRONMENT"] = "test"
+os.environ["MAINTENANCE_MODE"] = "false"
 
 from app.database import Base, get_db
+from app.api.auth import get_db_for_register
 from app.models import User, Service, Snapshot, ChangeEvent, Alert, Subscription, Payment, Tag, SavedView
 from app.main import app
 from app.scheduler import scheduler, start_scheduler, shutdown_scheduler
@@ -84,6 +86,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield db_session
     
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_db_for_register] = override_get_db
     
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac

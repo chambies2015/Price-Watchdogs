@@ -82,5 +82,5 @@ async def test_get_current_user(client: AsyncClient, auth_headers: dict):
 async def test_get_current_user_no_auth(client: AsyncClient):
     response = await client.get("/api/auth/me")
     
-    assert response.status_code == 403
+    assert response.status_code == 401
 

@@ -22,9 +22,19 @@ from sqlalchemy import delete
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+async def get_db_for_register():
+    if settings.maintenance_mode:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Registration is temporarily disabled for maintenance"
+        )
+    async for session in get_db():
+        yield session
+
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-async def register(request: Request, user_data: UserRegister, db: AsyncSession = Depends(get_db)):
+async def register(request: Request, user_data: UserRegister, db: AsyncSession = Depends(get_db_for_register)):
     email = user_data.email.lower().strip()
     _validate_password(user_data.password)
     result = await db.execute(select(User).where(User.email == email))

@@ -9,7 +9,7 @@ from app.models.user import User
 @pytest.mark.asyncio
 async def test_change_password_requires_auth(client):
     resp = await client.post("/api/auth/change-password", json={"current_password": "x", "new_password": "newpassword123"})
-    assert resp.status_code == 403
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio

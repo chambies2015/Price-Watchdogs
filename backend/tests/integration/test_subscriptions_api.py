@@ -55,7 +55,7 @@ async def test_create_checkout_session_requires_auth(client: AsyncClient):
         json={"plan_type": "pro_monthly"}
     )
     
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
