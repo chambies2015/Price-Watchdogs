@@ -24,7 +24,9 @@ if __name__ == "__main__":
     else:
         print("Skipping Playwright install (already done in Docker image)")
     
-    if _is_truthy(os.environ.get("RUN_MIGRATIONS")) and not _is_truthy(os.environ.get("SKIP_MIGRATIONS")):
+    if _is_truthy(os.environ.get("MAINTENANCE_MODE")):
+        print("MAINTENANCE_MODE enabled: skipping migrations and admin setup.")
+    elif _is_truthy(os.environ.get("RUN_MIGRATIONS")) and not _is_truthy(os.environ.get("SKIP_MIGRATIONS")):
         print("Running database migrations...")
         last_rc = 1
         for attempt in range(1, 7):
@@ -36,14 +38,13 @@ if __name__ == "__main__":
                 time.sleep(min(2 ** attempt, 15))
         if last_rc != 0:
             sys.exit(last_rc)
-    
-    print("Setting up admin account...")
-    admin_result = subprocess.run(
-        [sys.executable, "scripts/auto_setup_admin.py"],
-        check=False
-    )
-    if admin_result.returncode != 0:
-        print("Warning: Admin setup failed, but continuing...")
+        print("Setting up admin account...")
+        admin_result = subprocess.run(
+            [sys.executable, "scripts/auto_setup_admin.py"],
+            check=False
+        )
+        if admin_result.returncode != 0:
+            print("Warning: Admin setup failed, but continuing...")
     
     print("Starting FastAPI application...")
     port = os.environ.get("PORT", "8000")
